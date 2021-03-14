@@ -148,6 +148,7 @@ int dpu_rm_init(struct drm_device *dev,
 		}
 		rm->ctl_blks[ctl->id - CTL_0] = &hw->base;
 	}
+	rm->has_active_ctls = cat->caps->has_active_ctls;
 
 	for (i = 0; i < cat->dspp_count; i++) {
 		struct dpu_hw_dspp *hw;
@@ -442,12 +443,15 @@ static int _dpu_rm_reserve_ctls(
 	 * writeback and real-time encoders must be driven by the same control
 	 * path
 	 */
-	if (top->cwb_enabled)
+	if (top->cwb_enabled || rm->has_active_ctls)
 		num_ctls = 1;
 	else
 		num_ctls = top->num_intf;
 
-	needs_split_display = _dpu_rm_needs_split_display(top);
+	if (rm->has_active_ctls)
+		needs_split_display = false;
+	else
+		needs_split_display = _dpu_rm_needs_split_display(top);
 
 	for (j = 0; j < ARRAY_SIZE(rm->ctl_blks); j++) {
 		const struct dpu_hw_ctl *ctl;
@@ -465,7 +469,7 @@ static int _dpu_rm_reserve_ctls(
 
 		DPU_DEBUG("ctl %d caps 0x%lX\n", j + CTL_0, features);
 
-		if (needs_split_display != has_split_display)
+		if (!rm->has_active_ctls && needs_split_display != has_split_display)
 			continue;
 
 		ctl_idx[i] = j;
