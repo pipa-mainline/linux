@@ -47,8 +47,9 @@ static const struct qca_cfg_data qca6390_cfg_data = {
 struct qca_data {
 	size_t num_vregs;
 	struct device *dev;
-	struct pinctrl_state *active_state;
 	struct generic_pm_domain pd;
+	struct gpio_desc *wlan_en_gpio;
+	struct gpio_desc *bt_en_gpio;
 	struct regulator_bulk_data regulators[];
 };
 
@@ -70,11 +71,10 @@ static int qca_power_on(struct generic_pm_domain *domain)
 	/* Wait for 1ms before toggling enable pins. */
 	msleep(1);
 
-	ret = pinctrl_select_state(data->dev->pins->p, data->active_state);
-	if (ret) {
-		dev_err(data->dev, "Failed to select active state");
-		return ret;
-	}
+	if (data->wlan_en_gpio)
+		gpiod_set_value(data->wlan_en_gpio, 1);
+	if (data->bt_en_gpio)
+		gpiod_set_value(data->bt_en_gpio, 1);
 
 	/* Wait for all power levels to stabilize */
 	msleep(6);
@@ -88,7 +88,11 @@ static int qca_power_off(struct generic_pm_domain *domain)
 
 	dev_warn(&domain->dev, "DUMMY POWER OFF\n");
 
-	pinctrl_select_default_state(data->dev);
+	if (data->wlan_en_gpio)
+		gpiod_set_value(data->wlan_en_gpio, 0);
+	if (data->bt_en_gpio)
+		gpiod_set_value(data->bt_en_gpio, 0);
+
 	regulator_bulk_disable(data->num_vregs, data->regulators);
 
 	return 0;
@@ -115,13 +119,6 @@ static int qca_probe(struct platform_device *pdev)
 	data->dev = dev;
 	data->num_vregs = cfg->num_vregs;
 
-	data->active_state = pinctrl_lookup_state(dev->pins->p, "active");
-	if (IS_ERR(data->active_state)) {
-		ret = PTR_ERR(data->active_state);
-		dev_err(dev, "Failed to get active_state: %d\n", ret);
-		return ret;
-	}
-
 	for (i = 0; i < data->num_vregs; i++)
 		data->regulators[i].supply = cfg->vregs[i].name;
 	ret = devm_regulator_bulk_get(dev, data->num_vregs, data->regulators);
@@ -133,6 +130,14 @@ static int qca_probe(struct platform_device *pdev)
 		if (ret)
 			return ret;
 	}
+
+	data->wlan_en_gpio = devm_gpiod_get_optional(&pdev->dev, "wlan-en", GPIOD_OUT_LOW);
+	if (IS_ERR(data->wlan_en_gpio))
+		return PTR_ERR(data->wlan_en_gpio);
+
+	data->bt_en_gpio = devm_gpiod_get_optional(&pdev->dev, "bt-en", GPIOD_OUT_LOW);
+	if (IS_ERR(data->bt_en_gpio))
+		return PTR_ERR(data->bt_en_gpio);
 
 	data->pd.name = dev_name(dev);
 	data->pd.power_on = qca_power_on;
