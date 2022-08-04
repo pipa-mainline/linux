@@ -550,50 +550,22 @@
 	pinctrl-0 = <&qup_spi4_data_clk &qup_spi4_cs_gpio>;
 	cs-gpios = <&tlmm 11 GPIO_ACTIVE_LOW>;
 	touchscreen@1 {
-		compatible = "novatek,nvt-ts";
-		reg = <0x01>;
+        compatible = "novatek,NVT-ts-spi";
+		reg = <0>; //Same as CS ID
+		status = "okay";
 
-		interrupts-extended = <&tlmm 39 0x2001>;
+		spi-max-frequency = <19200000>;	//4800000,9600000,15000000,19200000
+		novatek,irq-gpio = <&tlmm 39 0x2001>;
 
-        pinctrl-0 = <&ts_cs_active>;
-		pinctrl-1 = <&ts_cs_suspend>;
-		pinctrl-names = "ts_active", "ts_suspend";
+		novatek,pen-support;
+		novatek,wgp-stylus;
 
-		touchscreen-size-x = <1800>;
-		touchscreen-size-y = <2880>;
+		/*  523 */
+		novatek,swrst-n8-addr = <0x03F0FE>;
+		novatek,spi-rd-fast-addr = <0x03F310>;
+        firmware-name = "novatek/nt36532.bin";
+    };
 
-	};
-};
-
-&tlmm {
-	ts_mux {
-		ts_cs_active: ts_cs_active {
-			mux {
-				pins = "gpio11";
-				function = "qup4";
-			};
-
-			config {
-				pins = "gpio11";
-				drive-strength = <6>;
-				bias-disable;
-			};
-		};
-
-		ts_cs_suspend: ts_cs_suspend {
-			mux {
-				pins = "gpio11";
-				function = "gpio";
-			};
-
-			config {
-				pins = "gpio11";
-				drive-strength = <6>;
-				bias-pull-down;
-				output-low;
-			};
-		};
-	};
 };
 
 &pcie0 {

@@ -16,6 +16,7 @@
 #include <linux/spi/spi.h>
 #include <linux/regmap.h>
 #include <linux/module.h>
+#include <linux/pinctrl/consumer.h>
 
 #include <asm/unaligned.h>
 
@@ -62,6 +63,12 @@ struct nvt_ts_data {
 	struct touchscreen_properties prop;
 	int max_touches;
 	u8 buf[NVT_TS_TOUCH_SIZE * NVT_TS_MAX_TOUCHES];
+	uint8_t *xbuf;  // buffer for transmit
+	uint8_t *rbuf;  // buffer for receive
+	struct mutex xbuf_lock; // mutex for xbuf
+	struct pinctrl *ts_pinctrl;
+	struct pinctrl_state *pinctrl_state_active;
+	struct pinctrl_state *pinctrl_state_suspend;
 };
 
 static const struct regmap_config nvt_ts_regmap_config = {
@@ -309,6 +316,172 @@ static int nvt_ts_i2c_probe(struct i2c_client *client)
 	return 0;
 }
 
+#define PINCTRL_STATE_ACTIVE "pmx_ts_active"
+
+typedef enum {
+	NVTWRITE = 0,
+	NVTREAD  = 1
+} NVT_SPI_RW;
+#define DUMMY_BYTES (1)
+#define SPI_WRITE_MASK(a) (a | 0x80)
+#define SPI_READ_MASK(a) (a & 0x7F)
+#define NVT_TRANSFER_LEN	(63*1024)
+#define NVT_READ_LEN		(2*1024)
+
+int32_t spi_read_write(struct nvt_ts_data *ts, uint8_t *buf, size_t len, NVT_SPI_RW rw)
+{
+	struct spi_message m;
+	struct spi_transfer t = {
+		.len    = len,  // this will be overwritten for reads
+	};
+printk("spi read write called\n");
+	if (!ts || !buf) {
+		printk("Invalid ts or buf pointer\n");
+		return -EINVAL;
+	}
+
+	memset(ts->xbuf, 0, len + DUMMY_BYTES); // Assuming DUMMY_BYTES is defined
+	memcpy(ts->xbuf, buf, len);
+printk("spi read write memcpy done\n");
+	switch (rw) {
+		case NVTREAD:
+			t.tx_buf = ts->xbuf;
+			t.rx_buf = ts->rbuf;
+			t.len    = len + DUMMY_BYTES;  // include dummy bytes for read operations
+			break;
+
+		case NVTWRITE:
+			t.tx_buf = ts->xbuf;
+			t.rx_buf = NULL;  // not receiving any data
+			t.len    = len;   // no dummy bytes for write
+			break;
+
+		default:
+			printk("Invalid SPI operation\n");
+			return -EINVAL;
+	}
+
+	spi_message_init(&m);
+	spi_message_add_tail(&t, &m);
+
+	return spi_sync(ts->device, &m);  // using the SPI device from your structure
+}
+
+int32_t CTP_SPI_READ(struct nvt_ts_data *ts, uint8_t *buf, uint16_t len)
+{
+	int32_t ret = -1;
+	int32_t retries = 0;
+
+	if (!ts || !buf) {
+		printk("Invalid ts or buf pointer\n");
+		return -EINVAL;
+	}
+
+	//mutex_lock(&ts->xbuf_lock);
+
+	// Assuming the buf[0] has been prepared by the caller function
+	while (retries < 5) {
+		ret = spi_read_write(ts, buf, len, NVTREAD); // Here, we use ts->client
+		if (ret == 0) break;
+		retries++;
+	}
+
+	if (unlikely(retries == 5)) {
+		printk("read error, ret=%d\n", ret);
+		ret = -EIO;
+	} else {
+		// Assuming the actual read data starts from the third byte in rbuf
+		memcpy(buf, ts->rbuf + 2, len); // Adjust based on your protocol
+	}
+
+	//mutex_unlock(&ts->xbuf_lock);
+
+	return ret;
+}
+
+int32_t CTP_SPI_WRITE(struct nvt_ts_data *ts, uint8_t *buf, uint16_t len)
+{
+	int32_t ret = -1;
+	int32_t retries = 0;
+printk("enter ctp\n");
+	if (!ts || !buf) {
+		printk("Invalid ts or buf pointer\n");
+		return -EINVAL;
+	}
+
+	//mutex_lock(&ts->xbuf_lock);
+printk("ctp mux locked\n");
+	// Assuming the buf[0] has been prepared by the caller function
+	while (retries < 5) {
+        printk("ctp calling wite\n");
+		ret = spi_read_write(ts, buf, len, NVTWRITE); // Here, we use ts->client
+		if (ret == 0)	break;
+		retries++;
+	}
+
+	if (unlikely(retries == 5)) {
+		printk("write error, ret=%d\n", ret);
+		ret = -EIO;
+	}
+
+	//mutex_unlock(&ts->xbuf_lock);
+
+	return ret;
+}
+
+
+int32_t nvt_read_addr(struct nvt_ts_data *ts, uint32_t addr, uint8_t *buf, uint16_t len)
+{
+	int32_t ret = -1;
+
+	if (!ts || !buf) {
+		// handle error, invalid argument
+		return -EINVAL;
+	}
+
+	mutex_lock(&ts->xbuf_lock);
+
+	// Prepare command buffer
+	ts->xbuf[0] = SPI_READ_MASK(addr & 0x7F); // assuming SPI_READ_MASK is defined somewhere
+
+	ret = CTP_SPI_READ(ts, ts->xbuf, len);
+	if (ret < 0) {
+		printk("read from addr 0x%06X failed, ret = %d\n", addr, ret);
+	} else {
+		memcpy(buf, ts->rbuf + 2, len); // copy the data to the provided buffer
+	}
+
+	mutex_unlock(&ts->xbuf_lock);
+
+	return ret;
+}
+
+int32_t nvt_write_addr(struct nvt_ts_data *ts, uint32_t addr, uint8_t *data, uint16_t len)
+{
+	int32_t ret = -1;
+    printk("nvt write called");
+	if (!ts || !data) {
+		// handle error, invalid argument
+		return -EINVAL;
+	}
+printk("nvt write lock mutex");
+	mutex_lock(&ts->xbuf_lock);
+printk("nvt write locked mutex");
+	// Prepare command buffer
+	ts->xbuf[0] = SPI_WRITE_MASK(addr & 0x7F); // assuming SPI_WRITE_MASK is defined somewhere
+    printk("nvt write got mask");
+	memcpy(ts->xbuf + 1, data, len); // copy data to be written
+printk("data copied");
+	ret = CTP_SPI_WRITE(ts, ts->xbuf, len + 1); // write data
+	if (ret < 0) {
+		printk("write to addr 0x%06X failed, ret = %d\n", addr, ret);
+	}
+
+	mutex_unlock(&ts->xbuf_lock);
+
+	return ret;
+}
+
 static int nvt_ts_spi_probe(struct spi_device *spi)
 {
 	struct device *dev = &spi->dev;
@@ -326,10 +499,30 @@ static int nvt_ts_spi_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	data->device = spi;
+    spi_set_drvdata(spi, data);
 	dev_set_drvdata(dev, data);
 
 	data->dev = spi->dev;
 	data->irq = spi->irq;
+
+    data->device->bits_per_word = 8;
+	data->device->mode = SPI_MODE_0;
+
+	error = spi_setup(data->device);
+
+    // Allocate memory for SPI buffers
+	data->xbuf = devm_kzalloc(&spi->dev, (NVT_TRANSFER_LEN+1+DUMMY_BYTES), GFP_KERNEL); // Define XFER_BUFFER_SIZE as appropriate
+	if (!data->xbuf)
+		return -ENOMEM;
+
+	data->rbuf = devm_kzalloc(&spi->dev, (NVT_TRANSFER_LEN+1+DUMMY_BYTES), GFP_KERNEL);
+	if (!data->rbuf)
+		return -ENOMEM;
+
+	if(error){
+		dev_err(dev, "failed to setup spi: %d\n", error);
+		return error;
+	}
 
 	// Create regmap
 	data->regmap = devm_regmap_init_spi(spi, &nvt_ts_regmap_config);
@@ -369,12 +562,16 @@ static int nvt_ts_spi_probe(struct spi_device *spi)
 		dev_err(dev, "failed to request reset GPIO: %d, continuing without\n", error);
 	}
 
+	uint8_t data_to_write = 0x5A; // The data you want to write
+nvt_write_addr(data, 0x7FFF80, &data_to_write, 1); // 'ts' is your struct nvt_ts_data *ts
+
 	/* Wait for controller to come out of reset before params read */
 	msleep(100);
-    dev_err(dev, "fGoinf to read ts params\n");
-	error = regmap_bulk_read(data->regmap, NVT_TS_PARAMETERS_START,
-				 data->buf, NVT_TS_PARAMS_SIZE);
-
+    dev_err(dev, "Goinf to read ts params\n");
+	nvt_read_addr(data, 0x3F004,
+				 data->buf, NVT_TS_TOUCH_SIZE * NVT_TS_MAX_TOUCHES);
+    dev_err(dev, "Read ts param done err: %d\n", error);
+     print_hex_dump(KERN_ERR, "", DUMP_PREFIX_NONE, 16, 1, data->buf, NVT_TS_TOUCH_SIZE * NVT_TS_MAX_TOUCHES, true);
 	if(data->reset_gpio!=NULL)
 		gpiod_set_value_cansleep(data->reset_gpio, 1); /* Put back in reset */
 	if (error){
