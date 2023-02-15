@@ -390,7 +390,7 @@ static void _dpu_hw_sspp_setup_scaler3(struct dpu_hw_sspp *ctx,
 
 	dpu_hw_setup_scaler3(&ctx->hw, scaler3_cfg,
 			ctx->cap->sblk->scaler_blk.base,
-			ctx->cap->sblk->scaler_blk.version,
+			ctx->version,
 			format);
 }
 
@@ -691,6 +691,11 @@ struct dpu_hw_sspp *dpu_hw_sspp_init(const struct dpu_sspp_cfg *cfg,
 	hw_pipe->idx = cfg->id;
 	hw_pipe->cap = cfg;
 	_setup_layer_ops(hw_pipe, hw_pipe->cap->features);
+
+	if (test_bit(DPU_SSPP_SCALER_QSEED3, &cfg->features) ||
+			test_bit(DPU_SSPP_SCALER_QSEED3LITE, &cfg->features) ||
+			test_bit(DPU_SSPP_SCALER_QSEED4, &cfg->features))
+		hw_pipe->version = _dpu_hw_sspp_get_scaler3_ver(hw_pipe);
 
 	return hw_pipe;
 }

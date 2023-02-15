@@ -310,6 +310,7 @@ struct dpu_hw_sspp_ops {
  * @base: hardware block base structure
  * @hw: block hardware details
  * @ubwc: UBWC configuration data
+ * @version: QSEED block revision
  * @idx: pipe index
  * @cap: pointer to layer_cfg
  * @ops: pointer to operations possible for this pipe
@@ -318,6 +319,8 @@ struct dpu_hw_sspp {
 	struct dpu_hw_blk base;
 	struct dpu_hw_blk_reg_map hw;
 	const struct msm_mdss_data *ubwc;
+
+	u32 version;
 
 	/* Pipe */
 	enum dpu_sspp idx;

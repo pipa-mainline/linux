@@ -269,11 +269,9 @@ enum {
 /**
  * struct dpu_scaler_blk: Scaler information
  * @info:   HW register and features supported by this sub-blk
- * @version: qseed block revision
  */
 struct dpu_scaler_blk {
 	DPU_HW_SUBBLK_INFO;
-	u32 version;
 };
 
 struct dpu_csc_blk {
