@@ -83,6 +83,10 @@ struct drm_dsc_config {
 	 */
 	u8 bits_per_component;
 	/**
+	 * @slice_per_pkt: slice number per DSC bit stream packet
+	 */
+	u8 slice_per_pkt;
+	/**
 	 * @convert_rgb:
 	 * Flag to indicate if RGB - YCoCg conversion is needed
 	 * True if RGB input, False if YCoCg input

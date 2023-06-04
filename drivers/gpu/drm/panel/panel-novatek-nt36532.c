@@ -21,6 +21,7 @@
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_modes.h>
 #include <drm/drm_panel.h>
+#include <drm/drm_probe_helper.h>
 
 #define DSI_NUM_MIN 1
 
@@ -35,10 +36,10 @@ struct panel_info {
 	struct mipi_dsi_device *dsi[2];
 	const struct panel_desc *desc;
 	enum drm_panel_orientation orientation;
-
+	struct drm_dsc_config dsc;
 	struct gpio_desc *reset_gpio;
 	struct backlight_device *backlight;
-	struct regulator *vddio;
+	struct regulator_bulk_data supplies[4];
 };
 
 struct panel_desc {
@@ -275,7 +276,7 @@ static int pipa_csot_init_sequence(struct panel_info *pinfo)
 
 static const struct drm_display_mode pipa_csot_modes[] = {
 	{
-		.clock = (900 + 100 + 2 + 46) * (2880 + 26 + 2 + 214) * 120 / 1000,
+		.clock = (1800 + 200 + 4 + 92) * (2880 + 26 + 2 + 214) * 120 / 1000,
 		.hdisplay = 1800,
 		.hsync_start = 1800 + 200,
 		.hsync_end = 1800 + 200 + 4,
@@ -286,17 +287,6 @@ static const struct drm_display_mode pipa_csot_modes[] = {
 		.vtotal = 2880 + 26 + 2 + 214,
 		.width_mm = 1480,
 		.height_mm = 2367,
-		// .clock = (900 + 100 + 2 + 46) * (2880 + 26 + 2 + 214) * 120 / 1000,
-		// .hdisplay = 900,
-		// .hsync_start = 900 + 100,
-		// .hsync_end = 900 + 100 + 2,
-		// .htotal = 900 + 100 + 2 + 46,
-		// .vdisplay = 2880,
-		// .vsync_start = 2880 + 26,
-		// .vsync_end = 2880 + 26 + 2,
-		// .vtotal = 2880 + 26 + 2 + 214,
-		// .width_mm = 1480,
-		// .height_mm = 2367,
 	},
 };
 
@@ -345,13 +335,30 @@ static int nt36532_prepare(struct drm_panel *panel)
 	struct drm_dsc_picture_parameter_set pps;
 	int ret;
 
-	// ret = regulator_enable(pinfo->vddio);
-	// if (ret) {
-	// 	dev_err(panel->dev, "failed to enable vddio regulator: %d\n", ret);
-	// 	return ret;
-	// }
+	ret = regulator_bulk_enable(ARRAY_SIZE(pinfo->supplies), pinfo->supplies);
+	if (ret < 0) {
+		dev_err(panel->dev, "Failed to enable regulators: %d\n", ret);
+		return ret;
+	}
 
 	nt36532_reset(pinfo);
+
+	pinfo->dsi[0]->mode_flags |= MIPI_DSI_MODE_LPM;
+	if (pinfo->dsi[1])
+		pinfo->dsi[1]->mode_flags |= MIPI_DSI_MODE_LPM;
+
+	ret = mipi_dsi_dcs_exit_sleep_mode(pinfo->dsi[0]);
+	if (ret < 0) {
+		dev_err(panel->dev, "Failed to exit sleep mode: %d\n", ret);
+		return ret;
+	}
+	usleep_range(15000, 16000);
+
+	ret = mipi_dsi_compression_mode(pinfo->dsi[0], true);
+	if (ret < 0) {
+		dev_err(panel->dev, "Failed to set compression mode: %d\n", ret);
+		return ret;
+	}
 
 	ret = pinfo->desc->init_sequence(pinfo);
 	if (ret < 0) {
@@ -360,21 +367,40 @@ static int nt36532_prepare(struct drm_panel *panel)
 		return ret;
 	}
 
-	drm_dsc_pps_payload_pack(&pps, &pinfo->desc->dsc);
+	return 0;
+}
 
-	ret = mipi_dsi_picture_parameter_set(pinfo->dsi[1], &pps);
+
+static int nt36532_enable(struct drm_panel *panel)
+{
+	struct panel_info *pinfo = to_panel_info(panel);
+	struct drm_dsc_picture_parameter_set pps;
+	struct mipi_dsi_device *dsi = pinfo->dsi[0];
+	struct device *dev = &dsi->dev;
+	int ret;
+
+	ret = mipi_dsi_dcs_set_display_on(dsi);
+	if (ret < 0) {
+		dev_err(dev, "Failed to set display on: %d\n", ret);
+		return ret;
+	}
+	usleep_range(10000, 11000);
+
+	drm_dsc_pps_payload_pack(&pps, &pinfo->dsc);
+
+	print_hex_dump(KERN_INFO, "DSC:", DUMP_PREFIX_NONE, 16,
+	       1, (void *)&pps, sizeof(pps), false);
+
+	ret = mipi_dsi_picture_parameter_set(dsi, &pps);
 	if (ret < 0) {
 		dev_err(panel->dev, "failed to transmit PPS: %d\n", ret);
+		// goto fail;
 		return ret;
 	}
 
-	ret = mipi_dsi_compression_mode(pinfo->dsi[1], true);
-	if (ret < 0) {
-		dev_err(panel->dev, "failed to enable compression mode: %d\n", ret);
-		return ret;
-	}
+	msleep(28);
 
-	return 0;
+	return ret;
 }
 
 static int nt36532_disable(struct drm_panel *panel)
@@ -469,6 +495,7 @@ static enum drm_panel_orientation nt36532_get_orientation(struct drm_panel *pane
 
 static const struct drm_panel_funcs nt36532_panel_funcs = {
 	.disable = nt36532_disable,
+	.enable=nt36532_enable,
 	.prepare = nt36532_prepare,
 	.unprepare = nt36532_unprepare,
 	.get_modes = nt36532_get_modes,
@@ -540,10 +567,16 @@ static int nt36532_probe(struct mipi_dsi_device *dsi)
 	pinfo = devm_kzalloc(dev, sizeof(*pinfo), GFP_KERNEL);
 	if (!pinfo)
 		return -ENOMEM;
-
-	// pinfo->vddio = devm_regulator_get(dev, "vddio");
-	// if (IS_ERR(pinfo->vddio))
-	// 	return dev_err_probe(dev, PTR_ERR(pinfo->vddio), "failed to get vddio regulator\n");
+dev_err(dev, "Probe nt36532\n");
+	pinfo->supplies[0].supply = "vddio";
+	pinfo->supplies[1].supply = "dvddbuck";
+	pinfo->supplies[2].supply = "dvddldo";
+	pinfo->supplies[3].supply = "enp";
+	pinfo->supplies[4].supply = "enn";
+	ret = devm_regulator_bulk_get(dev, ARRAY_SIZE(pinfo->supplies),
+				      pinfo->supplies);
+	if (ret < 0)
+		return dev_err_probe(dev, ret, "Failed to get regulators\n");
 
 	pinfo->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(pinfo->reset_gpio))
@@ -553,26 +586,28 @@ static int nt36532_probe(struct mipi_dsi_device *dsi)
 	if (!pinfo->desc)
 		return -ENODEV;
 
+	dsi1 = of_graph_get_remote_node(dsi->dev.of_node, 1, -1);
 	/* If the panel is dual dsi, register DSI1 */
 	if (pinfo->desc->is_dual_dsi) {
-		info = &pinfo->desc->dsi_info;
+		const struct mipi_dsi_device_info info = { "RM69380", 0,
+							   dsi1 };
 
-		dsi1 = of_graph_get_remote_node(dsi->dev.of_node, 1, -1);
-		if (!dsi1) {
-			dev_err(dev, "cannot get secondary DSI node.\n");
-			return -ENODEV;
-		}
+		dev_dbg(dev, "Using Dual-DSI: found `%s`\n", dsi1->name);
 
 		dsi1_host = of_find_mipi_dsi_host_by_node(dsi1);
 		of_node_put(dsi1);
 		if (!dsi1_host)
-			return dev_err_probe(dev, -EPROBE_DEFER, "cannot get secondary DSI host\n");
+			return dev_err_probe(dev, -EPROBE_DEFER,
+					     "Cannot get secondary DSI host\n");
 
-		pinfo->dsi[1] = mipi_dsi_device_register_full(dsi1_host, info);
-		if (!pinfo->dsi[1]) {
-			dev_err(dev, "cannot get secondary DSI device\n");
-			return -ENODEV;
-		}
+		pinfo->dsi[1] =
+			devm_mipi_dsi_device_register_full(dev, dsi1_host, &info);
+		if (IS_ERR(pinfo->dsi[1]))
+			return dev_err_probe(dev, PTR_ERR(pinfo->dsi[1]),
+					     "Cannot get secondary DSI node\n");
+
+		dev_dbg(dev, "Second DSI name `%s`\n", pinfo->dsi[1]->name);
+		mipi_dsi_set_drvdata(pinfo->dsi[1], pinfo);
 	}
 
 	pinfo->dsi[0] = dsi;
@@ -591,6 +626,7 @@ static int nt36532_probe(struct mipi_dsi_device *dsi)
 	drm_panel_add(&pinfo->panel);
 
 	for (i = 0; i < DSI_NUM_MIN + pinfo->desc->is_dual_dsi; i++) {
+		pinfo->dsi[i]->dsc = &pinfo->dsc;
 		pinfo->dsi[i]->lanes = pinfo->desc->lanes;
 		pinfo->dsi[i]->format = pinfo->desc->format;
 		pinfo->dsi[i]->mode_flags = pinfo->desc->mode_flags;
