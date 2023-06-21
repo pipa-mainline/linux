@@ -45,7 +45,7 @@
 #define DPU_DEBUG_DRIVER(fmt, ...)                                         \
 	do {                                                               \
 		if (drm_debug_enabled(DRM_UT_DRIVER))                      \
-			DRM_ERROR(fmt, ##__VA_ARGS__); \
+			DRM_ERROR(fmt, ##__VA_ARGS__);                     \
 		else                                                       \
 			pr_debug(fmt, ##__VA_ARGS__);                      \
 	} while (0)

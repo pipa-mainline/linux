@@ -357,7 +357,7 @@ int dsi_link_clk_set_rate_6g(struct msm_dsi_host *msm_host)
 	int ret;
 
 	DBG("Set clk rates: pclk=%d, byteclk=%lu",
-		msm_host->mode->clock, msm_host->byte_clk_rate);
+		 msm_host->pixel_clk_rate, msm_host->byte_clk_rate);
 
 	ret = dev_pm_opp_set_rate(&msm_host->pdev->dev,
 				  msm_host->byte_clk_rate);
@@ -943,9 +943,9 @@ static void dsi_timing_setup(struct msm_dsi_host *msm_host, bool is_bonded_dsi)
 		u32 bytes_per_pclk;
 
 		/* update dsc params with timing params */
-		if (!dsc || !mode->hdisplay || !mode->vdisplay) {
+		if (!dsc || !hdisplay || !mode->vdisplay) {
 			pr_err("DSI: invalid input: pic_width: %d pic_height: %d\n",
-			       mode->hdisplay, mode->vdisplay);
+			       hdisplay, mode->vdisplay);
 			return;
 		}
 
@@ -987,7 +987,7 @@ static void dsi_timing_setup(struct msm_dsi_host *msm_host, bool is_bonded_dsi)
 
 	if (msm_host->mode_flags & MIPI_DSI_MODE_VIDEO) {
 		if (msm_host->dsc)
-			dsi_update_dsc_timing(msm_host, false, mode->hdisplay);
+			dsi_update_dsc_timing(msm_host, false, hdisplay);
 
 		dsi_write(msm_host, REG_DSI_ACTIVE_H,
 			DSI_ACTIVE_H_START(ha_start) |
@@ -1008,7 +1008,7 @@ static void dsi_timing_setup(struct msm_dsi_host *msm_host, bool is_bonded_dsi)
 			DSI_ACTIVE_VSYNC_VPOS_END(vs_end));
 	} else {		/* command mode */
 		if (msm_host->dsc)
-			dsi_update_dsc_timing(msm_host, true, mode->hdisplay);
+			dsi_update_dsc_timing(msm_host, true, hdisplay);
 
 		/* image data and 1 byte write_memory_start cmd */
 		if (!msm_host->dsc)

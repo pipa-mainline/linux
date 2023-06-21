@@ -559,7 +559,7 @@ bool dpu_encoder_use_dsc_merge(struct drm_encoder *drm_enc)
 
 	/* See dpu_encoder_get_topology, we only support 2:2:1 and 2:2:2 topology */
 	if (dpu_enc->dsc)
-		num_dsc = 1;
+		num_dsc = 2;
 
 	return (num_dsc > 0) && (num_dsc > intf_count);
 }
@@ -1942,8 +1942,13 @@ static void dpu_encoder_prep_dsc(struct dpu_encoder_virt *dpu_enc,
 	this_frame_slices = pic_width / dsc->slice_width;
 	intf_ip_w = this_frame_slices * dsc->slice_width;
 
+	/*
+	 * dsc merge case: when using 2 encoders for the same stream,
+	 * no. of slices need to be same on both the encoders.
+	 */
 	enc_ip_w = intf_ip_w / num_dsc;
-	initial_lines = dpu_encoder_dsc_initial_line_calc(dsc, enc_ip_w);
+	initial_lines = 3;
+	// dpu_encoder_dsc_initial_line_calc(dsc, enc_ip_w);
 
 	for (i = 0; i < num_dsc; i++)
 		dpu_encoder_dsc_pipe_cfg(ctl, hw_dsc[i], hw_pp[i],
@@ -2417,6 +2422,7 @@ static int dpu_encoder_setup_display(struct dpu_encoder_virt *dpu_enc,
 		DPU_DEBUG("h_tile_instance %d = %d, split_role %d\n",
 				i, controller_id, phys_params.split_role);
 
+		// TODO: this is where we need to grab two INTfs?
 		phys_params.hw_intf = dpu_encoder_get_intf(dpu_kms->catalog, &dpu_kms->rm,
 							   disp_info->intf_type,
 							   controller_id);
