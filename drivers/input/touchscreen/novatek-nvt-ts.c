@@ -13,6 +13,7 @@
 #include <linux/input.h>
 #include <linux/input/mt.h>
 #include <linux/input/touchscreen.h>
+#include <linux/regmap.h>
 #include <linux/module.h>
 
 #include <asm/unaligned.h>
@@ -50,6 +51,7 @@ static const int nvt_ts_irq_type[4] = {
 
 struct nvt_ts_data {
 	struct i2c_client *client;
+	struct regmap *regmap;
 	struct input_dev *input;
 	struct gpio_desc *reset_gpio;
 	struct regulator_bulk_data regulators[2];
@@ -58,31 +60,11 @@ struct nvt_ts_data {
 	u8 buf[NVT_TS_TOUCH_SIZE * NVT_TS_MAX_TOUCHES];
 };
 
-static int nvt_ts_read_data(struct i2c_client *client, u8 reg, u8 *data, int count)
-{
-	struct i2c_msg msg[2] = {
-		{
-			.addr = client->addr,
-			.len = 1,
-			.buf = &reg,
-		},
-		{
-			.addr = client->addr,
-			.flags = I2C_M_RD,
-			.len = count,
-			.buf = data,
-		}
-	};
-	int ret;
-
-	ret = i2c_transfer(client->adapter, msg, ARRAY_SIZE(msg));
-	if (ret != ARRAY_SIZE(msg)) {
-		dev_err(&client->dev, "Error reading from 0x%02x: %d\n", reg, ret);
-		return (ret < 0) ? ret : -EIO;
-	}
-
-	return 0;
-}
+static const struct regmap_config nvt_ts_regmap_config = {
+    .reg_bits = 8,
+    .val_bits = 8,
+    .max_register = NVT_TS_MAX_SIZE,
+};
 
 static irqreturn_t nvt_ts_irq(int irq, void *dev_id)
 {
@@ -92,7 +74,7 @@ static irqreturn_t nvt_ts_irq(int irq, void *dev_id)
 	bool active;
 	u8 *touch;
 
-	error = nvt_ts_read_data(data->client, NVT_TS_TOUCH_START, data->buf,
+	error = regmap_bulk_read(data->regmap, NVT_TS_TOUCH_START, data->buf,
 				 data->max_touches * NVT_TS_TOUCH_SIZE);
 	if (error)
 		return IRQ_HANDLED;
@@ -215,6 +197,14 @@ static int nvt_ts_probe(struct i2c_client *client)
 	data->client = client;
 	i2c_set_clientdata(client, data);
 
+	// Create regmap
+	data->regmap = devm_regmap_init_i2c(client, &nvt_ts_regmap_config);
+	if (IS_ERR(data->regmap)) {
+		error = PTR_ERR(data->regmap);
+		dev_err(dev, "Failed to allocate register map: %d\n", error);
+		return error;
+	}
+
 	/*
 	 * VCC is the analog voltage supply
 	 * IOVCC is the digital voltage supply
@@ -248,7 +238,7 @@ static int nvt_ts_probe(struct i2c_client *client)
 
 	/* Wait for controller to come out of reset before params read */
 	msleep(100);
-	error = nvt_ts_read_data(data->client, NVT_TS_PARAMETERS_START,
+	error = regmap_bulk_read(data->regmap, NVT_TS_PARAMETERS_START,
 				 data->buf, NVT_TS_PARAMS_SIZE);
 	gpiod_set_value_cansleep(data->reset_gpio, 1); /* Put back in reset */
 	if (error)
