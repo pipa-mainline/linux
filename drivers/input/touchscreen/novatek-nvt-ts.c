@@ -13,6 +13,7 @@
 #include <linux/input.h>
 #include <linux/input/mt.h>
 #include <linux/input/touchscreen.h>
+#include <linux/spi/spi.h>
 #include <linux/regmap.h>
 #include <linux/module.h>
 
@@ -50,7 +51,10 @@ static const int nvt_ts_irq_type[4] = {
 };
 
 struct nvt_ts_data {
+	struct device dev;
 	struct i2c_client *client;
+	struct spi_device *device;
+	int irq;
 	struct regmap *regmap;
 	struct input_dev *input;
 	struct gpio_desc *reset_gpio;
@@ -69,7 +73,7 @@ static const struct regmap_config nvt_ts_regmap_config = {
 static irqreturn_t nvt_ts_irq(int irq, void *dev_id)
 {
 	struct nvt_ts_data *data = dev_id;
-	struct device *dev = &data->client->dev;
+	struct device *dev = &data->dev;
 	int i, error, slot, x, y;
 	bool active;
 	u8 *touch;
@@ -133,11 +137,11 @@ static int nvt_ts_start(struct input_dev *dev)
 
 	error = regulator_bulk_enable(ARRAY_SIZE(data->regulators), data->regulators);
 	if (error) {
-		dev_err(&data->client->dev, "failed to enable regulators\n");
+		dev_err(&data->dev, "failed to enable regulators\n");
 		return error;
 	}
 
-	enable_irq(data->client->irq);
+	enable_irq(data->irq);
 	gpiod_set_value_cansleep(data->reset_gpio, 0);
 
 	return 0;
@@ -147,7 +151,7 @@ static void nvt_ts_stop(struct input_dev *dev)
 {
 	struct nvt_ts_data *data = input_get_drvdata(dev);
 
-	disable_irq(data->client->irq);
+	disable_irq(data->irq);
 	gpiod_set_value_cansleep(data->reset_gpio, 1);
 	nvt_ts_disable_regulators(data);
 }
@@ -178,7 +182,7 @@ static int nvt_ts_resume(struct device *dev)
 
 static DEFINE_SIMPLE_DEV_PM_OPS(nvt_ts_pm_ops, nvt_ts_suspend, nvt_ts_resume);
 
-static int nvt_ts_probe(struct i2c_client *client)
+static int nvt_ts_i2c_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
 	int error, width, height, irq_type;
@@ -196,6 +200,9 @@ static int nvt_ts_probe(struct i2c_client *client)
 
 	data->client = client;
 	i2c_set_clientdata(client, data);
+
+	data->dev = client->dev;
+	data->irq = client->irq;
 
 	// Create regmap
 	data->regmap = devm_regmap_init_i2c(client, &nvt_ts_regmap_config);
@@ -302,6 +309,136 @@ static int nvt_ts_probe(struct i2c_client *client)
 	return 0;
 }
 
+static int nvt_ts_spi_probe(struct spi_device *spi)
+{
+	struct device *dev = &spi->dev;
+	int error, width, height, irq_type;
+	struct nvt_ts_data *data;
+	struct input_dev *input;
+
+	if (!spi->irq) {
+		dev_err(dev, "Error no irq specified\n");
+		return -EINVAL;
+	}
+
+	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+
+	data->device = spi;
+	dev_set_drvdata(dev, data);
+
+	data->dev = spi->dev;
+	data->irq = spi->irq;
+
+	// Create regmap
+	data->regmap = devm_regmap_init_spi(spi, &nvt_ts_regmap_config);
+	if (IS_ERR(data->regmap)) {
+		error = PTR_ERR(data->regmap);
+		dev_err(dev, "Failed to allocate register map: %d\n", error);
+		return error;
+	}
+
+	/*
+	 * VCC is the analog voltage supply
+	 * IOVCC is the digital voltage supply
+	 */
+	data->regulators[0].supply = "vcc";
+	data->regulators[1].supply = "iovcc";
+	error = devm_regulator_bulk_get(dev, ARRAY_SIZE(data->regulators), data->regulators);
+	if (error) {
+		dev_err(dev, "cannot get regulators: %d\n", error);
+		return error;
+	}
+
+	error = regulator_bulk_enable(ARRAY_SIZE(data->regulators), data->regulators);
+	if (error) {
+		dev_err(dev, "failed to enable regulators\n");
+		return error;
+	}
+
+	error = devm_add_action_or_reset(dev, nvt_ts_disable_regulators, data);
+	if (error) {
+		dev_err(dev, "failed to install regulator disable handler\n");
+		return error;
+	}
+
+	data->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
+	error = PTR_ERR_OR_ZERO(data->reset_gpio);
+	if (error) {
+		dev_err(dev, "failed to request reset GPIO: %d, continuing without\n", error);
+	}
+
+	/* Wait for controller to come out of reset before params read */
+	msleep(100);
+    dev_err(dev, "fGoinf to read ts params\n");
+	error = regmap_bulk_read(data->regmap, NVT_TS_PARAMETERS_START,
+				 data->buf, NVT_TS_PARAMS_SIZE);
+
+	if(data->reset_gpio!=NULL)
+		gpiod_set_value_cansleep(data->reset_gpio, 1); /* Put back in reset */
+	if (error){
+        dev_err(dev, "failed to read ts params: %d\n", error);
+		return error;
+    }
+	width  = get_unaligned_be16(&data->buf[NVT_TS_PARAMS_WIDTH]);
+	height = get_unaligned_be16(&data->buf[NVT_TS_PARAMS_HEIGHT]);
+	data->max_touches = data->buf[NVT_TS_PARAMS_MAX_TOUCH];
+	irq_type = data->buf[NVT_TS_PARAMS_IRQ_TYPE];
+
+	if (width > NVT_TS_MAX_SIZE || height >= NVT_TS_MAX_SIZE ||
+	    data->max_touches > NVT_TS_MAX_TOUCHES ||
+	    irq_type >= ARRAY_SIZE(nvt_ts_irq_type)) {
+		dev_err(dev, "Unsupported touchscreen parameters: %*ph\n",
+			NVT_TS_PARAMS_SIZE, data->buf);
+		return -EIO;
+	}
+
+	dev_dbg(dev, "Detected %dx%d touchscreen with %d max touches\n",
+		width, height, data->max_touches);
+
+	if (data->buf[NVT_TS_PARAMS_MAX_BUTTONS])
+		dev_warn(dev, "Touchscreen buttons are not supported\n");
+
+	input = devm_input_allocate_device(dev);
+	if (!input)
+		return -ENOMEM;
+
+	input->name = "test";
+	input->id.bustype = BUS_SPI;
+	input->open = nvt_ts_start;
+	input->close = nvt_ts_stop;
+
+	input_set_abs_params(input, ABS_MT_POSITION_X, 0, width - 1, 0, 0);
+	input_set_abs_params(input, ABS_MT_POSITION_Y, 0, height - 1, 0, 0);
+	touchscreen_parse_properties(input, true, &data->prop);
+
+	error = input_mt_init_slots(input, data->max_touches,
+				    INPUT_MT_DIRECT | INPUT_MT_DROP_UNUSED);
+	if (error)
+		return error;
+
+	data->input = input;
+	input_set_drvdata(input, data);
+
+	error = devm_request_threaded_irq(dev, spi->irq, NULL, nvt_ts_irq,
+					  IRQF_ONESHOT | IRQF_NO_AUTOEN |
+						nvt_ts_irq_type[irq_type],
+					  "test", data);
+	if (error) {
+		dev_err(dev, "failed to request irq: %d\n", error);
+		return error;
+	}
+
+	error = input_register_device(input);
+	if (error) {
+		dev_err(dev, "failed to register input device: %d\n", error);
+		return error;
+	}
+
+	return 0;
+}
+
 static const struct of_device_id nvt_ts_of_match[] = {
 	{ .compatible = "novatek,nvt-ts" },
 	{ }
@@ -314,17 +451,28 @@ static const struct i2c_device_id nvt_ts_i2c_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, nvt_ts_i2c_id);
 
-static struct i2c_driver nvt_ts_driver = {
+static struct i2c_driver nvt_ts_i2c_driver = {
 	.driver = {
-		.name	= "novatek-nvt-ts",
+		.name	= "novatek-nvt-ts-i2c",
 		.pm	= pm_sleep_ptr(&nvt_ts_pm_ops),
 		.of_match_table = nvt_ts_of_match,
 	},
-	.probe = nvt_ts_probe,
+	.probe = nvt_ts_i2c_probe,
 	.id_table = nvt_ts_i2c_id,
 };
 
-module_i2c_driver(nvt_ts_driver);
+module_i2c_driver(nvt_ts_i2c_driver);
+
+static struct spi_driver nvt_ts_spi_driver = {
+	.driver = {
+		.name	= "novatek-nvt-ts-spi",
+		.pm	= pm_sleep_ptr(&nvt_ts_pm_ops),
+		.of_match_table = nvt_ts_of_match,
+	},
+	.probe = nvt_ts_spi_probe,
+};
+
+module_spi_driver(nvt_ts_spi_driver);
 
 MODULE_DESCRIPTION("Novatek NT11205 touchscreen driver");
 MODULE_AUTHOR("Hans de Goede <hdegoede@redhat.com>");

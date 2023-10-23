@@ -534,7 +534,67 @@
 	};
 };
 
+&qup_spi4_cs_gpio {
+	drive-strength = <6>;
+	bias-disable;
+};
 
+&qup_spi4_data_clk {
+	drive-strength = <6>;
+	bias-disable;
+};
+
+&spi4 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&qup_spi4_data_clk &qup_spi4_cs_gpio>;
+	cs-gpios = <&tlmm 11 GPIO_ACTIVE_LOW>;
+	touchscreen@1 {
+		compatible = "novatek,nvt-ts";
+		reg = <0x01>;
+
+		interrupts-extended = <&tlmm 39 0x2001>;
+
+        pinctrl-0 = <&ts_cs_active>;
+		pinctrl-1 = <&ts_cs_suspend>;
+		pinctrl-names = "ts_active", "ts_suspend";
+
+		touchscreen-size-x = <1800>;
+		touchscreen-size-y = <2880>;
+
+	};
+};
+
+&tlmm {
+	ts_mux {
+		ts_cs_active: ts_cs_active {
+			mux {
+				pins = "gpio11";
+				function = "qup4";
+			};
+
+			config {
+				pins = "gpio11";
+				drive-strength = <6>;
+				bias-disable;
+			};
+		};
+
+		ts_cs_suspend: ts_cs_suspend {
+			mux {
+				pins = "gpio11";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio11";
+				drive-strength = <6>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+	};
+};
 
 &pcie0 {
 	status = "okay";
