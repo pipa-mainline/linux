@@ -503,7 +503,8 @@ int32_t nvt_check_fw_reset_state(RST_COMPLETE_STATE check_reset_state)
 		buf[0] = EVENT_MAP_RESET_COMPLETE;
 		buf[1] = 0x00;
 		CTP_SPI_READ(ts->client, buf, 6);
-
+NVT_ERR("error, retry=%d, buf[1]=0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n",
+				retry, buf[1], buf[2], buf[3], buf[4], buf[5]);
 		if ((buf[1] >= check_reset_state) && (buf[1] <= RESET_STATE_MAX)) {
 			ret = 0;
 			break;
@@ -909,13 +910,6 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 		goto XFER_ERROR;
 	}
 
-	/*--- dump SPI buf ---
-	for (i = 0; i < 10; i++) {
-		NVT_LOG("%02X %02X %02X %02X %02X %02X  \n",
-			point_data[1+i*6], point_data[2+i*6], point_data[3+i*6], point_data[4+i*6], point_data[5+i*6], point_data[6+i*6]);
-	}
-	*/
-
 	/* ESD protect by FW handshake */
 	if (nvt_fw_recovery(point_data)) {
 #if NVT_TOUCH_ESD_PROTECT
@@ -937,22 +931,16 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 			/* update interrupt timer */
 			irq_timer = jiffies;
 #endif /* #if NVT_TOUCH_ESD_PROTECT */
-			input_x = (uint32_t)(point_data[position + 1] << 4) + (uint32_t) (point_data[position + 3] >> 4);
-			input_y = (uint32_t)(point_data[position + 2] << 4) + (uint32_t) (point_data[position + 3] & 0x0F);
+			input_x = (uint32_t)(point_data[position + 1] << 8) + (uint32_t) (point_data[position + 2]);
+			input_y = (uint32_t)(point_data[position + 3] << 8) + (uint32_t) (point_data[position + 4]);
 			if ((input_x < 0) || (input_y < 0))
 				continue;
-			if ((input_x > ts->abs_x_max) || (input_y > ts->abs_y_max))
+			if ((input_x > ts->abs_x_max * 10 - 1) || (input_y > ts->abs_y_max * 10 - 1))
 				continue;
-			input_w = (uint32_t)(point_data[position + 4]);
+			input_w = (uint32_t)(point_data[position + 5]);
 			if (input_w == 0)
 				input_w = 1;
-			if (i < 2) {
-				input_p = (uint32_t)(point_data[position + 5]) + (uint32_t)(point_data[i + 63] << 8);
-				if (input_p > TOUCH_FORCE_NUM)
-					input_p = TOUCH_FORCE_NUM;
-			} else {
-				input_p = (uint32_t)(point_data[position + 5]);
-			}
+			input_p = (uint32_t)(point_data[1 + 98 + i]);
 			if (input_p == 0)
 				input_p = 1;
 
@@ -1234,10 +1222,12 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 
 	mutex_init(&ts->lock);
 	mutex_init(&ts->xbuf_lock);
-
+NVT_LOG("Hi1\n");
+//nvt_check_fw_reset_state(0x0A);
 	//---eng reset before TP_RESX high
 	nvt_eng_reset();
-
+NVT_LOG("Hi2\n");
+//nvt_check_fw_reset_state(0x0A);
 #if NVT_TOUCH_SUPPORT_HW_RST
 	gpio_set_value(ts->reset_gpio, 1);
 #endif
@@ -1304,8 +1294,8 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 #if TOUCH_MAX_FINGER_NUM > 1
 	input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);    //area = 255
 
-	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0, ts->abs_x_max - 1, 0, 0);
-	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, 0, ts->abs_y_max - 1, 0, 0);
+	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0, ts->abs_x_max * 10 - 1, 0, 0);
+	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, 0, ts->abs_y_max * 10 - 1, 0, 0);
 #if MT_PROTOCOL_B
 	// no need to set ABS_MT_TRACKING_ID, input_mt_init_slots() already set it
 #else

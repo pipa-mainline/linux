@@ -17,8 +17,12 @@
 #include <linux/regmap.h>
 #include <linux/module.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/firmware.h>
+#include <linux/of_gpio.h>
 
 #include <asm/unaligned.h>
+
+#define DUMMY_BYTES (1)
 
 #define NVT_TS_TOUCH_START		0x00
 #define NVT_TS_TOUCH_SIZE		6
@@ -43,6 +47,19 @@
 #define NVT_TS_TOUCH_NEW		1
 #define NVT_TS_TOUCH_UPDATE		2
 #define NVT_TS_TOUCH_RELEASE		3
+#define NVT_TS_SPI_WRITE_MASK(a) (a | 0x80)
+#define NVT_TS_SPI_READ_MASK(a) (a & 0x7F)
+#define NVT_TS_TRANSFER_LEN	(63*1024)
+#define NVT_TS_READ_LEN		(2*1024)
+#define NVT_TS_RESET_REG		0x7FFF80
+#define NVT_TS_SWRST_N8_ADDR  0x03F0FE
+#define NVT_TS_EVENT_BUF_ADDR 0x125800
+#define NVT_TS_EVENT_MAP_RESET_COMPLETE 0x60
+
+typedef enum {
+	NVTWRITE = 0,
+	NVTREAD  = 1
+} NVT_SPI_RW;
 
 static const int nvt_ts_irq_type[4] = {
 	IRQF_TRIGGER_RISING,
@@ -316,121 +333,149 @@ static int nvt_ts_i2c_probe(struct i2c_client *client)
 	return 0;
 }
 
-#define PINCTRL_STATE_ACTIVE "pmx_ts_active"
-
-typedef enum {
-	NVTWRITE = 0,
-	NVTREAD  = 1
-} NVT_SPI_RW;
-#define DUMMY_BYTES (1)
-#define SPI_WRITE_MASK(a) (a | 0x80)
-#define SPI_READ_MASK(a) (a & 0x7F)
-#define NVT_TRANSFER_LEN	(63*1024)
-#define NVT_READ_LEN		(2*1024)
-
-int32_t spi_read_write(struct nvt_ts_data *ts, uint8_t *buf, size_t len, NVT_SPI_RW rw)
+int32_t nvt_ts_spi_read_write(struct nvt_ts_data *ts, uint8_t *buf, size_t len, NVT_SPI_RW rw)
 {
 	struct spi_message m;
 	struct spi_transfer t = {
-		.len    = len,  // this will be overwritten for reads
+		.len    = len,
 	};
-printk("spi read write called\n");
-	if (!ts || !buf) {
-		printk("Invalid ts or buf pointer\n");
-		return -EINVAL;
-	}
 
-	memset(ts->xbuf, 0, len + DUMMY_BYTES); // Assuming DUMMY_BYTES is defined
+	memset(ts->xbuf, 0, len + DUMMY_BYTES);
 	memcpy(ts->xbuf, buf, len);
-printk("spi read write memcpy done\n");
+
 	switch (rw) {
 		case NVTREAD:
 			t.tx_buf = ts->xbuf;
 			t.rx_buf = ts->rbuf;
-			t.len    = len + DUMMY_BYTES;  // include dummy bytes for read operations
+			t.len    = (len + DUMMY_BYTES);
 			break;
 
 		case NVTWRITE:
 			t.tx_buf = ts->xbuf;
-			t.rx_buf = NULL;  // not receiving any data
-			t.len    = len;   // no dummy bytes for write
 			break;
-
-		default:
-			printk("Invalid SPI operation\n");
-			return -EINVAL;
 	}
 
 	spi_message_init(&m);
 	spi_message_add_tail(&t, &m);
-
-	return spi_sync(ts->device, &m);  // using the SPI device from your structure
+	return spi_sync(ts->device, &m);
 }
 
-int32_t CTP_SPI_READ(struct nvt_ts_data *ts, uint8_t *buf, uint16_t len)
+int32_t nvt_ts_spi_read(struct nvt_ts_data *ts, uint8_t *buf, uint16_t len)
 {
 	int32_t ret = -1;
 	int32_t retries = 0;
 
-	if (!ts || !buf) {
-		printk("Invalid ts or buf pointer\n");
-		return -EINVAL;
-	}
+//	mutex_lock(&ts->xbuf_lock);
 
-	//mutex_lock(&ts->xbuf_lock);
+	buf[0] = NVT_TS_SPI_READ_MASK(buf[0]);
 
-	// Assuming the buf[0] has been prepared by the caller function
 	while (retries < 5) {
-		ret = spi_read_write(ts, buf, len, NVTREAD); // Here, we use ts->client
+		ret = nvt_ts_spi_read_write(ts, buf, len, NVTREAD);
 		if (ret == 0) break;
 		retries++;
 	}
 
 	if (unlikely(retries == 5)) {
-		printk("read error, ret=%d\n", ret);
+		dev_err(&ts->dev,"read error, ret=%d\n", ret);
 		ret = -EIO;
 	} else {
-		// Assuming the actual read data starts from the third byte in rbuf
-		memcpy(buf, ts->rbuf + 2, len); // Adjust based on your protocol
+		memcpy((buf+1), (ts->rbuf+2), (len-1));
 	}
 
-	//mutex_unlock(&ts->xbuf_lock);
+//	mutex_unlock(&ts->xbuf_lock);
 
 	return ret;
 }
 
-int32_t CTP_SPI_WRITE(struct nvt_ts_data *ts, uint8_t *buf, uint16_t len)
+int32_t nvt_ts_spi_write(struct nvt_ts_data *ts, uint8_t *buf, uint16_t len)
 {
 	int32_t ret = -1;
 	int32_t retries = 0;
-printk("enter ctp\n");
-	if (!ts || !buf) {
-		printk("Invalid ts or buf pointer\n");
-		return -EINVAL;
-	}
 
-	//mutex_lock(&ts->xbuf_lock);
-printk("ctp mux locked\n");
-	// Assuming the buf[0] has been prepared by the caller function
+//	mutex_lock(&ts->xbuf_lock);
+
+	buf[0] = NVT_TS_SPI_WRITE_MASK(buf[0]);
+
 	while (retries < 5) {
-        printk("ctp calling wite\n");
-		ret = spi_read_write(ts, buf, len, NVTWRITE); // Here, we use ts->client
+		ret = nvt_ts_spi_read_write(ts, buf, len, NVTWRITE);
 		if (ret == 0)	break;
 		retries++;
 	}
 
 	if (unlikely(retries == 5)) {
-		printk("write error, ret=%d\n", ret);
+		dev_err(&ts->dev,"error, ret=%d\n", ret);
 		ret = -EIO;
 	}
 
-	//mutex_unlock(&ts->xbuf_lock);
+//	mutex_unlock(&ts->xbuf_lock);
+
+	return ret;
+}
+
+int32_t nvt_ts_set_page(struct nvt_ts_data *ts, uint32_t addr)
+{
+	uint8_t buf[4] = {0};
+
+	buf[0] = 0xFF;	//set index/page/addr command
+	buf[1] = (addr >> 15) & 0xFF;
+	buf[2] = (addr >> 7) & 0xFF;
+
+	return nvt_ts_spi_read_write(ts, buf, 3, NVTWRITE);
+}
+
+int32_t nvt_ts_get_fw_info(struct nvt_ts_data *ts)
+{
+	uint8_t buf[64] = {0};
+	uint32_t retry_count = 0;
+	int32_t ret = 0;
+
+info_retry:
+	//---set xdata index to EVENT BUF ADDR---
+	nvt_ts_set_page(ts, NVT_TS_EVENT_BUF_ADDR | 0x78);
+
+	//---read fw info---
+	buf[0] = 0x78;
+	nvt_ts_spi_read(ts, buf, 39);
+	int fw_ver = buf[1];
+	int x_num = buf[3];
+	int y_num = buf[4];
+	int abs_x_max = (uint16_t)((buf[5] << 8) | buf[6]);
+	int abs_y_max = (uint16_t)((buf[7] << 8) | buf[8]);
+	int max_button_num = buf[11];
+	int cascade = buf[34] & 0x01;
+
+	//---clear x_num, y_num if fw info is broken---
+	if ((buf[1] + buf[2]) != 0xFF) {
+		dev_err(&ts->dev, "FW info is broken! fw_ver=0x%02X, ~fw_ver=0x%02X\n", buf[1], buf[2]);
+		fw_ver = 0;
+		x_num = 18;
+		y_num = 32;
+		abs_x_max = 101;
+		abs_y_max = 101;
+		max_button_num = 101;
+
+		if(retry_count < 3) {
+			retry_count++;
+			dev_err(&ts->dev, "retry_count=%d\n", retry_count);
+			goto info_retry;
+		} else {
+			dev_err(&ts->dev, "Set default fw_ver=%d, x_num=%d, y_num=%d, "
+					"abs_x_max=%d, abs_y_max=%d, max_button_num=%d!\n",
+					fw_ver, x_num, y_num,
+					abs_x_max, abs_y_max, max_button_num);
+			ret = -1;
+		}
+	} else {
+		ret = 0;
+	}
+
+	dev_err(&ts->dev, "fw_ver = 0x%02X, fw_type = 0x%02X, x_num=%d, y_num=%d\n", fw_ver, buf[14], x_num, y_num);
 
 	return ret;
 }
 
 
-int32_t nvt_read_addr(struct nvt_ts_data *ts, uint32_t addr, uint8_t *buf, uint16_t len)
+int32_t nvt_ts_read_addr(struct nvt_ts_data *ts, uint32_t addr, uint8_t *buf, uint16_t len)
 {
 	int32_t ret = -1;
 
@@ -439,47 +484,314 @@ int32_t nvt_read_addr(struct nvt_ts_data *ts, uint32_t addr, uint8_t *buf, uint1
 		return -EINVAL;
 	}
 
-	mutex_lock(&ts->xbuf_lock);
+	//mutex_lock(&ts->xbuf_lock);
 
 	// Prepare command buffer
-	ts->xbuf[0] = SPI_READ_MASK(addr & 0x7F); // assuming SPI_READ_MASK is defined somewhere
+	ts->xbuf[0] = NVT_TS_SPI_READ_MASK(addr & 0x7F);
 
-	ret = CTP_SPI_READ(ts, ts->xbuf, len);
+	ret = nvt_ts_spi_read(ts, ts->xbuf, len);
 	if (ret < 0) {
-		printk("read from addr 0x%06X failed, ret = %d\n", addr, ret);
+		dev_err(&ts->dev, "read from addr 0x%06X failed, ret = %d\n", addr, ret);
 	} else {
 		memcpy(buf, ts->rbuf + 2, len); // copy the data to the provided buffer
 	}
 
-	mutex_unlock(&ts->xbuf_lock);
+	//mutex_unlock(&ts->xbuf_lock);
 
 	return ret;
 }
 
-int32_t nvt_write_addr(struct nvt_ts_data *ts, uint32_t addr, uint8_t *data, uint16_t len)
-{
-	int32_t ret = -1;
-    printk("nvt write called");
-	if (!ts || !data) {
-		// handle error, invalid argument
-		return -EINVAL;
-	}
-printk("nvt write lock mutex");
-	mutex_lock(&ts->xbuf_lock);
-printk("nvt write locked mutex");
-	// Prepare command buffer
-	ts->xbuf[0] = SPI_WRITE_MASK(addr & 0x7F); // assuming SPI_WRITE_MASK is defined somewhere
-    printk("nvt write got mask");
-	memcpy(ts->xbuf + 1, data, len); // copy data to be written
-printk("data copied");
-	ret = CTP_SPI_WRITE(ts, ts->xbuf, len + 1); // write data
-	if (ret < 0) {
-		printk("write to addr 0x%06X failed, ret = %d\n", addr, ret);
+int32_t nvt_ts_write_addr(struct nvt_ts_data *ts, uint32_t addr, uint8_t *data, uint16_t len)
+{int32_t ret = 0;
+	uint8_t buf[4] = {0};
+
+	//---set xdata index---
+	buf[0] = 0xFF;	//set index/page/addr command
+	buf[1] = (addr >> 15) & 0xFF;
+	buf[2] = (addr >> 7) & 0xFF;
+	ret = nvt_ts_spi_write(ts, buf, 3);
+	if (ret) {
+		dev_err(&ts->dev,"set page 0x%06X failed, ret = %d\n", addr, ret);
+		return ret;
 	}
 
-	mutex_unlock(&ts->xbuf_lock);
+	//---write data to index---
+	buf[0] = addr & (0x7F);
+	buf[1] = data;
+	ret = nvt_ts_spi_write(ts, buf, 2);
+	if (ret) {
+		dev_err(&ts->dev, "write data to 0x%06X failed, ret = %d\n", addr, ret);
+		return ret;
+	}
 
 	return ret;
+}
+
+#define tmp111 0x1FB50D
+static int32_t nvt_ts_write_sram(struct nvt_ts_data *ts, const u8 *fwdata,
+		uint32_t SRAM_addr, uint32_t size, uint32_t BIN_addr)
+{
+    uint8_t *fwbuf = (uint8_t *)kzalloc((NVT_TS_TRANSFER_LEN + 1 + DUMMY_BYTES), GFP_KERNEL);
+    memset(fwbuf, 0, (NVT_TS_TRANSFER_LEN+1+ DUMMY_BYTES));
+	int32_t ret = 0;
+	uint32_t i = 0;
+	uint16_t len = 0;
+	int32_t count = 0;
+    dev_err(&ts->dev, "sram write: called\n");
+	if (size % NVT_TS_TRANSFER_LEN)
+		count = (size / NVT_TS_TRANSFER_LEN) + 1;
+	else
+		count = (size / NVT_TS_TRANSFER_LEN);
+
+	for (i = 0 ; i < count ; i++) {
+		len = (size < NVT_TS_TRANSFER_LEN) ? size : NVT_TS_TRANSFER_LEN;
+		//---set xdata index to start address of SRAM---
+		ret = nvt_ts_set_page(ts, SRAM_addr);
+		if (ret) {
+			dev_err(&ts->dev, "set page failed, ret = %d\n", ret);
+			return ret;
+		}
+		//---write data into SRAM---
+		fwbuf[0] = SRAM_addr & 0x7F;	//offset
+		memcpy(fwbuf+1, &fwdata[BIN_addr], len);	//payload
+		ret = nvt_ts_spi_read_write(ts, fwbuf, len+1, NVTWRITE);
+
+		if (ret) {
+			dev_err(&ts->dev, "write to sram failed, ret = %d\n", ret);
+			return ret;
+		}
+
+		SRAM_addr += NVT_TS_TRANSFER_LEN;
+		BIN_addr += NVT_TS_TRANSFER_LEN;
+		size -= NVT_TS_TRANSFER_LEN;
+	}
+    kfree(fwbuf);
+
+
+	return ret;
+}
+
+int32_t nvt_check_fw_reset_state(struct nvt_ts_data *ts)
+{
+	uint8_t buf[8] = {0};
+	int32_t ret = 0;
+	int32_t retry = 0;
+	int32_t retry_max = 10;
+
+	//---set xdata index to EVENT BUF ADDR---
+	nvt_ts_set_page(ts, NVT_TS_EVENT_BUF_ADDR | NVT_TS_EVENT_MAP_RESET_COMPLETE);
+
+	while (1) {
+		//---read reset state---
+		buf[0] = 0x60;
+		buf[1] = 0x00;
+		nvt_ts_spi_read(ts, buf, 6);
+
+        dev_err(&ts->dev,"error, retry=%d, buf[1]=0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n",
+				retry, buf[1], buf[2], buf[3], buf[4], buf[5]);
+		//if ((buf[1] >= check_reset_state) && (buf[1] <= RESET_STATE_MAX)) {
+		//	ret = 0;
+		//	break;
+		//}
+
+		retry++;
+		if(unlikely(retry > retry_max)) {
+			dev_err(&ts->dev,"error, retry=%d, buf[1]=0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n",
+				retry, buf[1], buf[2], buf[3], buf[4], buf[5]);
+			ret = -1;
+			break;
+		}
+
+		usleep_range(10000, 10000);
+	}
+
+	return ret;
+}
+int nvt_ts_chip_id(struct nvt_ts_data *ts)
+{
+    uint8_t buf[8] = {0};
+    nvt_ts_set_page(ts, 0x1fb104);
+    buf[0] = 0x1fb104 & 0x7F;
+	buf[1] = 0x00;
+	buf[2] = 0x00;
+	buf[3] = 0x00;
+	buf[4] = 0x00;
+	buf[5] = 0x00;
+	buf[6] = 0x00;
+    nvt_ts_spi_write(ts, buf, 7);
+
+    buf[0] = 0x1fb104 & 0x7F;
+	buf[1] = 0x00;
+	buf[2] = 0x00;
+	buf[3] = 0x00;
+	buf[4] = 0x00;
+	buf[5] = 0x00;
+	buf[6] = 0x00;
+	nvt_ts_spi_read(ts, buf, 7);
+	dev_err(&ts->dev,"buf[1]=0x%02X, buf[2]=0x%02X, buf[3]=0x%02X, buf[4]=0x%02X, buf[5]=0x%02X, buf[6]=0x%02X\n",
+			buf[1], buf[2], buf[3], buf[4], buf[5], buf[6]);
+    return 0;
+}
+
+int32_t nvt_ts_check_tx_auto_copy(struct nvt_ts_data *ts)
+{
+	uint8_t buf[8] = {0};
+	int32_t i = 0;
+	const int32_t retry = 200;
+
+	for (i = 0; i < retry; i++) {
+		//---set xdata index to SPI_MST_AUTO_COPY---
+		nvt_ts_set_page(ts, 0x1FC925);
+
+		//---read auto copy status---
+		buf[0] = 0x1FC925 & 0x7F;
+		buf[1] = 0xFF;
+		nvt_ts_spi_read(ts, buf, 2);
+
+		if (buf[1] == 0x00)
+			break;
+
+		usleep_range(1000, 1000);
+	}
+
+	if (i >= retry) {
+		dev_err(&ts->dev, "failed, i=%d, buf[1]=0x%02X\n", i, buf[1]);
+		return -1;
+	} else {
+		return 0;
+	}
+}
+
+void nvt_fw_crc_enable(struct nvt_ts_data *ts)
+{
+	uint8_t buf[4] = {0};
+
+	//---set xdata index to EVENT BUF ADDR---
+	nvt_ts_set_page(ts, NVT_TS_EVENT_BUF_ADDR);
+
+	//---clear fw reset status---
+	buf[0] = NVT_TS_EVENT_MAP_RESET_COMPLETE & (0x7F);
+	buf[1] = 0x00;
+	nvt_ts_spi_write(ts, buf, 2);
+
+	//---enable fw crc---
+	buf[0] = 0x50 & (0x7F);
+	buf[1] = 0xAE;	//enable fw crc command
+	nvt_ts_spi_write(ts, buf, 2);
+}
+
+static void nvt_ts_set_bld_crc_bank(struct nvt_ts_data *ts, uint32_t DES_ADDR, uint32_t SRAM_ADDR,
+		uint32_t LENGTH_ADDR, uint32_t size,
+		uint32_t G_CHECKSUM_ADDR, uint32_t crc)
+{
+    uint8_t fwbuf[4] = {0};
+	/* write destination address */
+	nvt_ts_set_page(ts, DES_ADDR);
+	fwbuf[0] = DES_ADDR & 0x7F;
+	fwbuf[1] = (SRAM_ADDR) & 0xFF;
+	fwbuf[2] = (SRAM_ADDR >> 8) & 0xFF;
+	fwbuf[3] = (SRAM_ADDR >> 16) & 0xFF;
+	nvt_ts_spi_write(ts, fwbuf, 4);
+
+	/* write length */
+	//nvt_set_page(LENGTH_ADDR);
+	fwbuf[0] = LENGTH_ADDR & 0x7F;
+	fwbuf[1] = (size) & 0xFF;
+	fwbuf[2] = (size >> 8) & 0xFF;
+	fwbuf[3] = (size >> 16) & 0xFF;
+//	if (ts->hw_crc == HWCRC_LEN_2Bytes) {
+		nvt_ts_spi_write(ts, fwbuf, 3);
+//	} else if (ts->hw_crc >= HWCRC_LEN_3Bytes) {
+//		nvt_ts_spi_write(ts, fwbuf, 4);
+//	}
+
+	/* write golden dlm checksum */
+	//nvt_set_page(G_CHECKSUM_ADDR);
+	fwbuf[0] = G_CHECKSUM_ADDR & 0x7F;
+	fwbuf[1] = (crc) & 0xFF;
+	fwbuf[2] = (crc >> 8) & 0xFF;
+	fwbuf[3] = (crc >> 16) & 0xFF;
+	fwbuf[4] = (crc >> 24) & 0xFF;
+	nvt_ts_spi_write(ts, fwbuf, 5);
+
+	return;
+}
+
+static void nvt_ts_fw_upload(const struct firmware *fw, void *ctx){
+	struct nvt_ts_data *ts = ctx;
+	int32_t ret = -1;
+    char to_write=0;
+	const struct elf32_phdr *phdrs;
+	const struct elf32_phdr *phdr;
+	const struct elf32_hdr *ehdr;
+    dev_err(&ts->dev, "fw upload: enter\n");
+    if(!ts || !fw){
+        dev_err(&ts->dev, "fw upload: no fw\n");
+        return;
+    }
+
+	// Reboot to "eng" mode
+    to_write=0x5a;
+	nvt_ts_write_addr(ts, NVT_TS_RESET_REG, &to_write, 1);
+    dev_err(&ts->dev, "fw upload: trigger eng reboot\n");
+	// Reboot to bootloader
+    to_write=0x69;
+	nvt_ts_write_addr(ts, NVT_TS_SWRST_N8_ADDR, &to_write, 1);
+    dev_err(&ts->dev, "fw upload: rebooted to bl\n");
+	mdelay(5);	//wait tBRST2FR after Bootload RST
+
+  //  nvt_ts_chip_id(ts);
+
+    to_write=0x00;
+	/* clear fw reset status */
+	nvt_ts_write_addr(ts, NVT_TS_EVENT_BUF_ADDR | NVT_TS_EVENT_MAP_RESET_COMPLETE, &to_write, 1);
+    dev_err(&ts->dev, "fw upload: cleared fw state\n");
+	// Parse elf firmware and flash it
+	ehdr = (struct elf32_hdr *)fw->data;
+	phdrs = (struct elf32_phdr *)(ehdr + 1);
+
+
+    /* [0] ILM */
+	/* write register bank */
+	nvt_ts_set_bld_crc_bank(ts, 0x1FB528, phdrs[0].p_paddr,
+			0x1FB518, phdrs[0].p_filesz,
+			0x1FB500, 0xEC1B47FE);
+
+	/* [1] DLM */
+	/* write register bank */
+	nvt_ts_set_bld_crc_bank(ts, 0x1FB52C, phdrs[1].p_paddr,
+			0x1FB530, phdrs[1].p_filesz,
+			0x1FB504, 0x62FD8F84);
+
+    to_write=0x56;
+    nvt_ts_write_addr(ts, 0x1FC925, &to_write, 1);
+	for (int i = 0; i < ehdr->e_phnum; i++) {
+		phdr = &phdrs[i];
+		if(phdr->p_filesz==0)
+			continue;
+        dev_err(&ts->dev, "fw upload: going to write part: %d from: %llx to: %llx size: %d\n", i, phdr->p_offset, phdr->p_paddr, phdr->p_filesz);
+		nvt_ts_write_sram(ts, fw->data, phdr->p_paddr, phdr->p_filesz, phdr->p_offset);
+        dev_err(&ts->dev, "fw upload: part written to: 0x%llx\n", phdr->p_paddr);
+	}
+
+	nvt_ts_check_tx_auto_copy(ts);
+    mdelay(1000);
+    nvt_fw_crc_enable(ts);
+	to_write=0x01;
+	nvt_ts_write_addr(ts, tmp111, &to_write, 1);
+    to_write=0x00;
+	nvt_ts_write_addr(ts, tmp111, &to_write, 1);
+    to_write=0xA0;
+    nvt_ts_write_addr(ts, 0x1F61C, &to_write, 1);
+
+	mdelay(1000);
+   // nvt_check_fw_reset_state(ts);
+    nvt_ts_get_fw_info(ts);
+}
+static irqreturn_t nvt_ts_irq_spi(int irq, void *dev_id)
+{
+    printk("NVT_TS irq");
+    return IRQ_HANDLED;
 }
 
 static int nvt_ts_spi_probe(struct spi_device *spi)
@@ -488,22 +800,30 @@ static int nvt_ts_spi_probe(struct spi_device *spi)
 	int error, width, height, irq_type;
 	struct nvt_ts_data *data;
 	struct input_dev *input;
+	const char *firmware_name;
 
-	if (!spi->irq) {
-		dev_err(dev, "Error no irq specified\n");
-		return -EINVAL;
-	}
+	//if (!spi->irq) {
+	//	dev_err(dev, "Error no irq specified\n");
+	//	return -EINVAL;
+	//}
 
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
-
+    dev_err(dev, "spi probe: enter\n");
 	data->device = spi;
     spi_set_drvdata(spi, data);
 	dev_set_drvdata(dev, data);
 
 	data->dev = spi->dev;
-	data->irq = spi->irq;
+	//data->irq = spi->irq;
+    int irq_gpio = of_get_named_gpio(spi->dev.of_node, "novatek,irq-gpio", 0);
+    dev_err(dev, "novatek,irq-gpio=%d\n", irq_gpio);
+    error = gpio_request_one(irq_gpio, GPIOF_IN, "NVT-int");
+    if(error){
+		dev_err(dev, "failed to get irq gpio: %d\n", error);
+		return error;
+	}
 
     data->device->bits_per_word = 8;
 	data->device->mode = SPI_MODE_0;
@@ -511,26 +831,33 @@ static int nvt_ts_spi_probe(struct spi_device *spi)
 	error = spi_setup(data->device);
 
     // Allocate memory for SPI buffers
-	data->xbuf = devm_kzalloc(&spi->dev, (NVT_TRANSFER_LEN+1+DUMMY_BYTES), GFP_KERNEL); // Define XFER_BUFFER_SIZE as appropriate
+	data->xbuf = devm_kzalloc(&spi->dev, (NVT_TS_TRANSFER_LEN+1+DUMMY_BYTES), GFP_KERNEL); // Define XFER_BUFFER_SIZE as appropriate
 	if (!data->xbuf)
 		return -ENOMEM;
 
-	data->rbuf = devm_kzalloc(&spi->dev, (NVT_TRANSFER_LEN+1+DUMMY_BYTES), GFP_KERNEL);
+	data->rbuf = devm_kzalloc(&spi->dev, (NVT_TS_TRANSFER_LEN+1+DUMMY_BYTES), GFP_KERNEL);
 	if (!data->rbuf)
 		return -ENOMEM;
-
+    dev_err(dev, "spi bufs allocated\n");
 	if(error){
 		dev_err(dev, "failed to setup spi: %d\n", error);
 		return error;
 	}
 
+	dev_err(dev, "mode=%d, max_speed_hz=%d\n", data->device->mode, data->device->max_speed_hz);
+
 	// Create regmap
-	data->regmap = devm_regmap_init_spi(spi, &nvt_ts_regmap_config);
-	if (IS_ERR(data->regmap)) {
-		error = PTR_ERR(data->regmap);
-		dev_err(dev, "Failed to allocate register map: %d\n", error);
-		return error;
-	}
+//	data->regmap = devm_regmap_init_spi(spi, &nvt_ts_regmap_config);
+//	if (IS_ERR(data->regmap)) {
+//		error = PTR_ERR(data->regmap);
+	//	dev_err(dev, "Failed to allocate register map: %d\n", error);
+	////	return error;
+//	}
+
+	error = device_property_read_string(&spi->dev, "firmware-name", &firmware_name);
+	if (error) {
+		dev_err(dev, "Failed to read firmware-name property: %d\n", error);
+    }
 
 	/*
 	 * VCC is the analog voltage supply
@@ -562,13 +889,26 @@ static int nvt_ts_spi_probe(struct spi_device *spi)
 		dev_err(dev, "failed to request reset GPIO: %d, continuing without\n", error);
 	}
 
-	uint8_t data_to_write = 0x5A; // The data you want to write
-nvt_write_addr(data, 0x7FFF80, &data_to_write, 1); // 'ts' is your struct nvt_ts_data *ts
+	char to_write=0x5a;
+	nvt_ts_write_addr(data, NVT_TS_RESET_REG, &to_write, 1);
+	msleep(10);
 
-	/* Wait for controller to come out of reset before params read */
-	msleep(100);
+	dev_err(dev, "spi probe: going to upload fw\n");
+    error = request_firmware_nowait(THIS_MODULE, true, firmware_name,
+						dev, GFP_KERNEL, data,
+						nvt_ts_fw_upload);
+	if (error < 0) {
+		dev_err(dev, "unable to load %s\n", firmware_name);
+		return error;
+	}
+
+    if (error) {
+		dev_err(dev, "fw not found\n");
+		return error;
+	}
     dev_err(dev, "Goinf to read ts params\n");
-	nvt_read_addr(data, 0x3F004,
+	return 0;
+    nvt_ts_read_addr(data, 0x3F004,
 				 data->buf, NVT_TS_TOUCH_SIZE * NVT_TS_MAX_TOUCHES);
     dev_err(dev, "Read ts param done err: %d\n", error);
      print_hex_dump(KERN_ERR, "", DUMP_PREFIX_NONE, 16, 1, data->buf, NVT_TS_TOUCH_SIZE * NVT_TS_MAX_TOUCHES, true);
@@ -618,7 +958,7 @@ nvt_write_addr(data, 0x7FFF80, &data_to_write, 1); // 'ts' is your struct nvt_ts
 	data->input = input;
 	input_set_drvdata(input, data);
 
-	error = devm_request_threaded_irq(dev, spi->irq, NULL, nvt_ts_irq,
+	error = devm_request_threaded_irq(dev, spi->irq, NULL, nvt_ts_irq_spi,
 					  IRQF_ONESHOT | IRQF_NO_AUTOEN |
 						nvt_ts_irq_type[irq_type],
 					  "test", data);

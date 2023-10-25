@@ -753,7 +753,8 @@ static int32_t nvt_download_firmware(void)
 	int32_t ret = 0;
 
 	start = ktime_get();
-
+NVT_LOG("Hi3\n");
+nvt_check_fw_reset_state(0x0A);
 	while (1) {
 		/*
 		 * Send eng reset cmd before download FW
@@ -769,7 +770,8 @@ static int32_t nvt_download_firmware(void)
 		mdelay(10);	//wait tRT2BRST after TP_RST
 #endif
 		nvt_bootloader_reset();
-
+NVT_LOG("Hi4\n");
+nvt_check_fw_reset_state(0x0A);
 		/* clear fw reset status */
 		nvt_write_addr(ts->mmap->EVENT_BUF_ADDR | EVENT_MAP_RESET_COMPLETE, 0x00);
 
@@ -779,7 +781,8 @@ static int32_t nvt_download_firmware(void)
 			NVT_ERR("Write_Firmware failed. (%d)\n", ret);
 			goto fail;
 		}
-
+NVT_LOG("Hi5\n");
+nvt_check_fw_reset_state(0x0A);
 		/* Set Boot Ready Bit */
 		nvt_boot_ready();
 
