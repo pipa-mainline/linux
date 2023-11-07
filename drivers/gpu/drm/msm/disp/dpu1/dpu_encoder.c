@@ -49,7 +49,7 @@
 #define MAX_PHYS_ENCODERS_PER_VIRTUAL \
 	(MAX_H_TILES_PER_DISPLAY * NUM_PHYS_ENCODER_TYPES)
 
-#define MAX_CHANNELS_PER_ENC 4
+#define MAX_CHANNELS_PER_ENC 2
 
 #define IDLE_SHORT_TIMEOUT	1
 
@@ -532,6 +532,7 @@ bool dpu_encoder_use_dsc_merge(struct drm_encoder *drm_enc)
 		if (dpu_enc->phys_encs[i])
 			intf_count++;
 
+	/* See dpu_encoder_get_topology, we only support 2:2:1 topology */
 	if (dpu_enc->dsc)
 		num_dsc = 2;
 
@@ -596,7 +597,7 @@ static struct msm_display_topology dpu_encoder_get_topology(
 		 */
 		topology.num_dsc = 2;
 		topology.num_lm = 2;
-		topology.num_intf = 2;
+		topology.num_intf = 1;
 	}
 
 	return topology;
@@ -1819,48 +1820,46 @@ static void dpu_encoder_dsc_pipe_cfg(struct dpu_hw_ctl *ctl,
 static void dpu_encoder_prep_dsc(struct dpu_encoder_virt *dpu_enc,
 				 struct drm_dsc_config *dsc)
 {
+	/* coding only for 2LM, 2enc, 1 dsc config */
 	struct dpu_encoder_phys *enc_master = dpu_enc->cur_master;
 	struct dpu_hw_ctl *ctl = enc_master->hw_ctl;
 	struct dpu_hw_dsc *hw_dsc[MAX_CHANNELS_PER_ENC];
 	struct dpu_hw_pingpong *hw_pp[MAX_CHANNELS_PER_ENC];
 	int this_frame_slices;
 	int intf_ip_w, enc_ip_w;
-	int dsc_common_mode = 0;
+	int dsc_common_mode;
 	int pic_width;
 	u32 initial_lines;
 	int i;
-	int num_dsc = 0;
 
 	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
 		hw_pp[i] = dpu_enc->hw_pp[i];
 		hw_dsc[i] = dpu_enc->hw_dsc[i];
 
 		if (!hw_pp[i] || !hw_dsc[i]) {
-			break;
+			DPU_ERROR_ENC(dpu_enc, "invalid params for DSC\n");
+			return;
 		}
-		num_dsc++;
 	}
 
 	dsc_common_mode = 0;
 	pic_width = dsc->pic_width;
 
-	if (num_dsc > 1)
-		dsc_common_mode |= DSC_MODE_SPLIT_PANEL;
-	if (dpu_encoder_use_dsc_merge(&dpu_enc->base))
-		dsc_common_mode |= DSC_MODE_MULTIPLEX;
+	dsc_common_mode = DSC_MODE_MULTIPLEX | DSC_MODE_SPLIT_PANEL;
 	if (enc_master->intf_mode == INTF_MODE_VIDEO)
 		dsc_common_mode |= DSC_MODE_VIDEO;
 
 	this_frame_slices = pic_width / dsc->slice_width;
 	intf_ip_w = this_frame_slices * dsc->slice_width;
 
-	enc_ip_w = intf_ip_w;
+	/*
+	 * dsc merge case: when using 2 encoders for the same stream,
+	 * no. of slices need to be same on both the encoders.
+	 */
+	enc_ip_w = intf_ip_w / 2;
 	initial_lines = dpu_encoder_dsc_initial_line_calc(dsc, enc_ip_w);
 
-	DPU_ERROR_ENC(dpu_enc, "num_dsc = %d pic_width = %d intf_ip_w = %d enc_ip_w = %d initial_lines = %d\n",
-		num_dsc, pic_width, intf_ip_w, enc_ip_w, initial_lines);
-
-	for (i = 0; i < num_dsc; i++)
+	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++)
 		dpu_encoder_dsc_pipe_cfg(ctl, hw_dsc[i], hw_pp[i],
 					 dsc, dsc_common_mode, initial_lines);
 }
