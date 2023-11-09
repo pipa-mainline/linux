@@ -49,7 +49,7 @@
 #define MAX_PHYS_ENCODERS_PER_VIRTUAL \
 	(MAX_H_TILES_PER_DISPLAY * NUM_PHYS_ENCODER_TYPES)
 
-#define MAX_CHANNELS_PER_ENC 2
+#define MAX_CHANNELS_PER_ENC 4
 
 #define IDLE_SHORT_TIMEOUT	1
 
@@ -597,6 +597,7 @@ static struct msm_display_topology dpu_encoder_get_topology(
 		 */
 		topology.num_dsc = intf_count;
 		topology.num_lm = intf_count;
+        printk("DSC: intf: %d\n", intf_count);
 		WARN(topology.num_intf > 2,
 		     "DSC topology cannot support more than 2 interfaces\n");
 	}
