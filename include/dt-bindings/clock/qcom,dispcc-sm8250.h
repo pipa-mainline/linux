@@ -7,7 +7,7 @@
 #define _DT_BINDINGS_CLK_QCOM_DISP_CC_SM8250_H
 
 /* DISP_CC clock registers */
-define DISP_CC_MDSS_AHB_CLK			0
+#define DISP_CC_MDSS_AHB_CLK			0
 #define DISP_CC_MDSS_AHB_CLK_SRC		1
 #define DISP_CC_MDSS_BYTE0_CLK			2
 #define DISP_CC_MDSS_BYTE0_CLK_SRC		3
