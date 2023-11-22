@@ -84,6 +84,37 @@ static void drm_mode_to_intf_timing_params(
 	timing->border_clr = 0;
 	timing->underflow_clr = 0xff;
 	timing->hsync_skew = mode->hskew;
+printk("Timing Info: \n"
+       "\tWidth: %d\n"
+       "\tHeight: %d\n"
+       "\txres: %d\n"
+       "\tyres: %d\n"
+       "\th_back_porch: %d\n"
+       "\th_front_porch: %d\n"
+       "\tv_back_porch: %d\n"
+       "\tv_front_porch: %d\n"
+       "\thsync_pulse_width: %d\n"
+       "\tvsync_pulse_width: %d\n"
+       "\thsync_polarity: %d\n"
+       "\tvsync_polarity: %d\n"
+       "\tborder_clr: %d\n"
+       "\tunderflow_clr: %d\n"
+       "\thsync_skew: %d\n",
+       timing->width,
+       timing->height,
+       timing->xres,
+       timing->yres,
+       timing->h_back_porch,
+       timing->h_front_porch,
+       timing->v_back_porch,
+       timing->v_front_porch,
+       timing->hsync_pulse_width,
+       timing->vsync_pulse_width,
+       timing->hsync_polarity,
+       timing->vsync_polarity,
+       timing->border_clr,
+       timing->underflow_clr,
+       timing->hsync_skew);
 
 	/* DSI controller cannot handle active-low sync signals. */
 	if (phys_enc->hw_intf->cap->type == INTF_DSI) {

@@ -863,6 +863,7 @@ static void dsi_update_dsc_timing(struct msm_dsi_host *msm_host, bool is_cmd_mod
 	eol_byte_num = total_bytes_per_intf % 3;
 	pkt_per_line = slice_per_intf / msm_host->dsc_slice_per_pkt;
 
+	printk("total_bytes_per_intf: %d, bytes_per_pkt: %d, dsc->slice_chunk_size: %d, slice_per_intf: %d, pkt_per_line:%d, msm_host->dsc_slice_per_pkt: %d eol_byte_num: %d\n", total_bytes_per_intf, bytes_per_pkt, dsc->slice_chunk_size, slice_per_intf, pkt_per_line, msm_host->dsc_slice_per_pkt, eol_byte_num);
 	if (is_cmd_mode) /* packet data type */
 		reg = DSI_COMMAND_COMPRESSION_MODE_CTRL_STREAM0_DATATYPE(MIPI_DSI_DCS_LONG_WRITE);
 	else
@@ -928,6 +929,17 @@ static void dsi_timing_setup(struct msm_dsi_host *msm_host, bool is_bonded_dsi)
 		ha_start /= 2;
 		ha_end /= 2;
 		hdisplay /= 2;
+		printk("Bonded DSI adjustments: \n"
+           "\th_total: %d\n"
+           "\ths_end: %d\n"
+           "\tha_start: %d\n"
+           "\tha_end: %d\n"
+           "\thdisplay: %d\n",
+           h_total,
+           hs_end,
+           ha_start,
+           ha_end,
+           hdisplay);
 	}
 
 	if (msm_host->dsc) {
@@ -1626,10 +1638,10 @@ static int dsi_host_attach(struct mipi_dsi_host *host,
 	msm_host->mode_flags = dsi->mode_flags;
 	if (dsi->dsc) {
 		msm_host->dsc = dsi->dsc;
-		msm_host->dsc_slice_per_pkt = dsi->dsc_slice_per_pkt;
+		msm_host->dsc_slice_per_pkt = 2;
 		/* for backwards compatibility, assume 1 if not set */
 		if (!msm_host->dsc_slice_per_pkt)
-			msm_host->dsc_slice_per_pkt = 1;
+			msm_host->dsc_slice_per_pkt = 2;
 	}
 
 	/* Some gpios defined in panel DT need to be controlled by host */
