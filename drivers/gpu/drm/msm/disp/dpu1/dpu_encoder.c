@@ -206,7 +206,7 @@ struct dpu_encoder_virt {
 	bool wide_bus_en;
 
 	/* DSC configuration */
-	struct drm_dsc_config *dsc;
+	struct drm_dsc_config *dsc[MAX_CHANNELS_PER_ENC];
 };
 
 #define to_dpu_encoder_virt(x) container_of(x, struct dpu_encoder_virt, base)
@@ -533,17 +533,17 @@ bool dpu_encoder_use_dsc_merge(struct drm_encoder *drm_enc)
 			intf_count++;
 
 	/* See dpu_encoder_get_topology, we only support 2:2:1 topology */
-	if (dpu_enc->dsc)
+	if (dpu_enc->dsc[0])
 		num_dsc = 2;
 
 	return (num_dsc > 0) && (num_dsc > intf_count);
 }
 
-static struct drm_dsc_config *dpu_encoder_get_dsc_config(struct drm_encoder *drm_enc)
+static struct drm_dsc_config *dpu_encoder_get_dsc_config(struct drm_encoder *drm_enc, int id)
 {
 	struct msm_drm_private *priv = drm_enc->dev->dev_private;
 	struct dpu_encoder_virt *dpu_enc = to_dpu_encoder_virt(drm_enc);
-	int index = dpu_enc->disp_info.h_tile_instance[0];
+	int index = dpu_enc->disp_info.h_tile_instance[id];
 
 	if (dpu_enc->disp_info.intf_type == INTF_DSI)
 		return msm_dsi_get_dsc_config(priv->dsi[index]);
@@ -597,7 +597,7 @@ static struct msm_display_topology dpu_encoder_get_topology(
 		 */
 		topology.num_dsc = 2;
 		topology.num_lm = 2;
-		topology.num_intf = 1;
+		topology.num_intf = 2;
 	}
 
 	return topology;
@@ -650,7 +650,7 @@ static int dpu_encoder_virt_atomic_check(
 		}
 	}
 
-	dsc = dpu_encoder_get_dsc_config(drm_enc);
+	dsc = dpu_encoder_get_dsc_config(drm_enc, 0);
 
 	topology = dpu_encoder_get_topology(dpu_enc, dpu_kms, adj_mode, crtc_state, dsc);
 
@@ -1088,6 +1088,7 @@ static void dpu_encoder_virt_atomic_mode_set(struct drm_encoder *drm_enc,
 						drm_enc->base.id, DPU_HW_BLK_DSC,
 						hw_dsc, ARRAY_SIZE(hw_dsc));
 	for (i = 0; i < num_dsc; i++) {
+		printk("Set dsc enable mask for: %d\n", i);
 		dpu_enc->hw_dsc[i] = to_dpu_hw_dsc(hw_dsc[i]);
 		dsc_mask |= BIT(dpu_enc->hw_dsc[i]->idx - DSC_0);
 	}
@@ -1202,7 +1203,8 @@ static void dpu_encoder_virt_atomic_enable(struct drm_encoder *drm_enc,
 	disp_info = &dpu_enc->disp_info;
 	index = disp_info->h_tile_instance[0];
 
-	dpu_enc->dsc = dpu_encoder_get_dsc_config(drm_enc);
+	for (int i=0; i < MAX_CHANNELS_PER_ENC; i++)
+		dpu_enc->dsc[i] = dpu_encoder_get_dsc_config(drm_enc, i);
 
 	if (disp_info->intf_type == INTF_DP)
 		dpu_enc->wide_bus_en = msm_dp_wide_bus_available(priv->dp[index]);
@@ -1830,9 +1832,9 @@ static void dpu_encoder_dsc_pipe_cfg(struct dpu_hw_ctl *ctl,
 }
 
 static void dpu_encoder_prep_dsc(struct dpu_encoder_virt *dpu_enc,
-				 struct drm_dsc_config *dsc)
+				 struct drm_dsc_config *dsc[])
 {
-	/* coding only for 2LM, 2enc, 1 dsc config */
+	/* coding only for 2LM, 2enc, 1/2 dsc config */
 	struct dpu_encoder_phys *enc_master = dpu_enc->cur_master;
 	struct dpu_hw_ctl *ctl = enc_master->hw_ctl;
 	struct dpu_hw_dsc *hw_dsc[MAX_CHANNELS_PER_ENC];
@@ -1855,25 +1857,25 @@ static void dpu_encoder_prep_dsc(struct dpu_encoder_virt *dpu_enc,
 	}
 
 	dsc_common_mode = 0;
-	pic_width = dsc->pic_width;
-
+	pic_width = dsc[0]->pic_width;
+	printk("Topology setup dsc0 width: %d, dsi1 width: %d\n", dsc[0]->pic_width, dsc[1]->pic_width);
 	dsc_common_mode = DSC_MODE_MULTIPLEX | DSC_MODE_SPLIT_PANEL;
 	if (enc_master->intf_mode == INTF_MODE_VIDEO)
 		dsc_common_mode |= DSC_MODE_VIDEO;
 
-	this_frame_slices = pic_width / dsc->slice_width;
-	intf_ip_w = this_frame_slices * dsc->slice_width;
+	this_frame_slices = pic_width / dsc[0]->slice_width;
+	intf_ip_w = this_frame_slices * dsc[0]->slice_width;
 
 	/*
 	 * dsc merge case: when using 2 encoders for the same stream,
 	 * no. of slices need to be same on both the encoders.
 	 */
-	enc_ip_w = intf_ip_w / 2;
-	initial_lines = dpu_encoder_dsc_initial_line_calc(dsc, enc_ip_w);
+	enc_ip_w = intf_ip_w;
+	initial_lines = dpu_encoder_dsc_initial_line_calc(dsc[0], enc_ip_w);
 
 	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++)
 		dpu_encoder_dsc_pipe_cfg(ctl, hw_dsc[i], hw_pp[i],
-					 dsc, dsc_common_mode, initial_lines);
+					 dsc[i], dsc_common_mode, initial_lines);
 }
 
 void dpu_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc)
@@ -1908,7 +1910,7 @@ void dpu_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc)
 		}
 	}
 
-	if (dpu_enc->dsc)
+	if (dpu_enc->dsc[0])
 		dpu_encoder_prep_dsc(dpu_enc, dpu_enc->dsc);
 }
 
@@ -2082,7 +2084,8 @@ void dpu_encoder_helper_phys_cleanup(struct dpu_encoder_phys *phys_enc)
 
 	if (dpu_enc->dsc) {
 		dpu_encoder_unprep_dsc(dpu_enc);
-		dpu_enc->dsc = NULL;
+		for(int i = 0; i <MAX_CHANNELS_PER_ENC; i++)
+			dpu_enc->dsc[i] = NULL;
 	}
 
 	intf_cfg.stream_sel = 0; /* Don't care value for video mode */

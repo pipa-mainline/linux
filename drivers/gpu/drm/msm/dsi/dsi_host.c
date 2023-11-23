@@ -559,7 +559,7 @@ static unsigned long dsi_get_pclk_rate(const struct drm_display_mode *mode,
 	 */
 	if (is_bonded_dsi)
 		pclk_rate /= 2;
-
+printk("dsi_host: pclk rate is: %ld", pclk_rate);
 	return pclk_rate;
 }
 

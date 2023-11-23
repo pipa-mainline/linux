@@ -14,6 +14,7 @@ bool msm_dsi_is_cmd_mode(struct msm_dsi *msm_dsi)
 
 struct drm_dsc_config *msm_dsi_get_dsc_config(struct msm_dsi *msm_dsi)
 {
+	printk("msm_dsi_get_dsc_config id: %d", msm_dsi->id);
 	return msm_dsi_host_get_dsc_config(msm_dsi->host);
 }
 

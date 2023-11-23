@@ -303,6 +303,7 @@ static void dpu_hw_ctl_update_pending_flush_merge_3d_v1(struct dpu_hw_ctl *ctx,
 static void dpu_hw_ctl_update_pending_flush_dsc_v1(struct dpu_hw_ctl *ctx,
 						   enum dpu_dsc dsc_num)
 {
+	printk("dpu_hw_ctl_update_pending_flush_dsc_v1: dsc_num: %d", dsc_num);
 	ctx->pending_dsc_flush_mask |= BIT(dsc_num - DSC_0);
 	ctx->pending_flush_mask |= BIT(DSC_IDX);
 }
@@ -537,7 +538,7 @@ static void dpu_hw_ctl_intf_cfg_v1(struct dpu_hw_ctl *ctx,
 	if (cfg->merge_3d)
 		DPU_REG_WRITE(c, CTL_MERGE_3D_ACTIVE,
 			      BIT(cfg->merge_3d - MERGE_3D_0));
-
+	printk("Going to enable dsc with: %d\n", cfg->dsc);
 	if (cfg->dsc)
 		DPU_REG_WRITE(c, CTL_DSC_ACTIVE, cfg->dsc);
 }
