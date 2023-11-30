@@ -809,7 +809,7 @@ static int dpu_plane_atomic_check_pipe(struct dpu_plane *pdpu,
 	}
 
 	/* max clk check */
-	if (_dpu_plane_calc_clk(mode, pipe_cfg) > kms->perf.max_core_clk_rate) {
+	if (_dpu_plane_calc_clk(mode, pipe_cfg) > kms->perf.max_core_clk_rate*2) {
 		DPU_DEBUG_PLANE(pdpu, "plane exceeds max mdp core clk limits\n");
 		return -E2BIG;
 	}
