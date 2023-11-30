@@ -275,7 +275,7 @@ static int pipa_csot_init_sequence(struct panel_info *pinfo)
 
 static const struct drm_display_mode pipa_csot_modes[] = {
 	{
-		.clock = (1800 + 100 + 2 + 46) * (2880 + 26 + 2 + 214) * 120 / 1000,
+		.clock = (1800 + 200 + 4 + 92) * (2880 + 26 + 2 + 214) * 120 / 1000,
 		.hdisplay = 1800,
 		.hsync_start = 1800 + 200,
 		.hsync_end = 1800 + 200 + 4,
@@ -318,7 +318,7 @@ static const struct panel_desc pipa_csot_desc = {
 		.dsc_version_minor = 0x1,
 		.slice_height = 20,
 		.slice_width = 450,
-		.slice_count = 2,
+		.slice_count = 4,
 		.bits_per_component = 8,
 		.bits_per_pixel = 8 << 4,
 		.block_pred_enable = true,

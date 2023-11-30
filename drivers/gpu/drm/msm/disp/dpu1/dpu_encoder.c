@@ -597,7 +597,7 @@ static struct msm_display_topology dpu_encoder_get_topology(
 		 */
 		topology.num_dsc = 2;
 		topology.num_lm = 2;
-		topology.num_intf = 1;
+		topology.num_intf = 2;
 	}
 
 	return topology;
@@ -1861,7 +1861,7 @@ static void dpu_encoder_prep_dsc(struct dpu_encoder_virt *dpu_enc,
 	dsc_common_mode = 0;
 	pic_width = dsc->pic_width;
 
-	dsc_common_mode = DSC_MODE_MULTIPLEX | DSC_MODE_SPLIT_PANEL;
+	dsc_common_mode = DSC_MODE_SPLIT_PANEL;
 	if (enc_master->intf_mode == INTF_MODE_VIDEO)
 		dsc_common_mode |= DSC_MODE_VIDEO;
 
@@ -1872,8 +1872,8 @@ static void dpu_encoder_prep_dsc(struct dpu_encoder_virt *dpu_enc,
 	 * dsc merge case: when using 2 encoders for the same stream,
 	 * no. of slices need to be same on both the encoders.
 	 */
-	enc_ip_w = intf_ip_w / 2;
-	initial_lines = dpu_encoder_dsc_initial_line_calc(dsc, enc_ip_w);
+	enc_ip_w = intf_ip_w;
+	initial_lines = 13;
 
 	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++)
 		dpu_encoder_dsc_pipe_cfg(ctl, hw_dsc[i], hw_pp[i],
