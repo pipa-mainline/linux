@@ -275,7 +275,7 @@ static int pipa_csot_init_sequence(struct panel_info *pinfo)
 
 static const struct drm_display_mode pipa_csot_modes[] = {
 	{
-		.clock = (900 + 100 + 2 + 46) * (2880 + 26 + 2 + 214) * 120 / 1000,
+		.clock = (1800 + 100 + 2 + 46) * (2880 + 26 + 2 + 214) * 120 / 1000,
 		.hdisplay = 1800,
 		.hsync_start = 1800 + 200,
 		.hsync_end = 1800 + 200 + 4,
@@ -322,7 +322,7 @@ static const struct panel_desc pipa_csot_desc = {
 		.bits_per_component = 8,
 		.bits_per_pixel = 8 << 4,
 		.block_pred_enable = true,
-		.pic_width = 900,
+		.pic_width = 1800,
 		.pic_height = 2880,
 	},
 };
@@ -595,6 +595,7 @@ static int nt36532_probe(struct mipi_dsi_device *dsi)
 		pinfo->dsi[i]->format = pinfo->desc->format;
 		pinfo->dsi[i]->mode_flags = pinfo->desc->mode_flags;
 		pinfo->dsi[i]->dsc = &pinfo->desc->dsc;
+		pinfo->dsi[i]->dsc_slice_per_pkt = 2;
 
 		ret = mipi_dsi_attach(pinfo->dsi[i]);
 		if (ret < 0)
