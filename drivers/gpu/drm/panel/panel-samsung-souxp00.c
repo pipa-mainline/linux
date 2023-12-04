@@ -194,6 +194,18 @@ static int samsung_souxp00_disable(struct drm_panel *panel)
 	}
 	msleep(20);
 
+	return 0;
+}
+
+static int samsung_souxp00_unprepare(struct drm_panel *panel)
+{
+	struct samsung_souxp00 *ctx = to_samsung_souxp00(panel);
+	struct mipi_dsi_device *dsi = ctx->dsi;
+	struct device *dev = &ctx->dsi->dev;
+	int ret;
+
+	dev_err(dev, "%s\n", __func__);
+
 	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_WRITE_CONTROL_DISPLAY,
 			       WRITE_CONTROL_DISPLAY_BACKLIGHT);
 	usleep_range(17000, 18000);
@@ -204,16 +216,6 @@ static int samsung_souxp00_disable(struct drm_panel *panel)
 		return ret;
 	}
 	msleep(100);
-
-	return 0;
-}
-
-static int samsung_souxp00_unprepare(struct drm_panel *panel)
-{
-	struct samsung_souxp00 *ctx = to_samsung_souxp00(panel);
-	struct device *dev = &ctx->dsi->dev;
-
-	dev_err(dev, "%s\n", __func__);
 
 	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 	regulator_disable(ctx->vddio);
