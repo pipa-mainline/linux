@@ -247,6 +247,8 @@ ssize_t mipi_dsi_picture_parameter_set(struct mipi_dsi_device *dsi,
 
 ssize_t mipi_dsi_generic_write(struct mipi_dsi_device *dsi, const void *payload,
 			       size_t size);
+ssize_t mipi_dsi_generic_write_type(struct mipi_dsi_device *dsi, u8 type,
+				    const void *payload, size_t size);
 ssize_t mipi_dsi_generic_read(struct mipi_dsi_device *dsi, const void *params,
 			      size_t num_params, void *data, size_t size);
 
@@ -330,6 +332,26 @@ int mipi_dsi_dcs_get_display_brightness_large(struct mipi_dsi_device *dsi,
 		struct device *dev = &dsi->dev;                            \
 		int ret;                                                   \
 		ret = mipi_dsi_dcs_write_buffer(dsi, d, ARRAY_SIZE(d));    \
+		if (ret < 0) {                                             \
+			dev_err_ratelimited(                               \
+				dev, "sending command %#02x failed: %d\n", \
+				cmd, ret);                                 \
+			return ret;                                        \
+		}                                                          \
+	} while (0)
+
+/**
+ * mipi_dsi_dcs_write_long - transmit a DCS long command with payload
+ * @dsi: DSI peripheral device
+ * @cmd: Command
+ * @seq: buffer containing data to be transmitted
+ */
+#define mipi_dsi_dcs_write_long(dsi, cmd, seq...)                           \
+	do {                                                               \
+		static const u8 d[] = { cmd, seq };                        \
+		struct device *dev = &dsi->dev;                            \
+		int ret;                                                   \
+		ret = mipi_dsi_generic_write_type(dsi, MIPI_DSI_DCS_LONG_WRITE, d, ARRAY_SIZE(d));    \
 		if (ret < 0) {                                             \
 			dev_err_ratelimited(                               \
 				dev, "sending command %#02x failed: %d\n", \

@@ -737,6 +737,35 @@ ssize_t mipi_dsi_generic_write(struct mipi_dsi_device *dsi, const void *payload,
 }
 EXPORT_SYMBOL(mipi_dsi_generic_write);
 
+
+/**
+ * mipi_dsi_generic_write_type() - transmit data using a generic write packet of
+ * a specific type
+ * @dsi: DSI peripheral device
+ * @type: data type of the packet
+ * @payload: buffer containing the payload
+ * @size: size of payload buffer
+ *
+ * This function will automatically choose the right data type depending on
+ * the payload length.
+ *
+ * Return: The number of bytes transmitted on success or a negative error code
+ * on failure.
+ */
+ssize_t mipi_dsi_generic_write_type(struct mipi_dsi_device *dsi, u8 type,
+				    const void *payload, size_t size)
+{
+	struct mipi_dsi_msg msg = {
+		.channel = dsi->channel,
+		.tx_buf = payload,
+		.tx_len = size,
+		.type = type,
+	};
+
+	return mipi_dsi_device_transfer(dsi, &msg);
+}
+EXPORT_SYMBOL(mipi_dsi_generic_write_type);
+
 /**
  * mipi_dsi_generic_read() - receive data using a generic read packet
  * @dsi: DSI peripheral device
