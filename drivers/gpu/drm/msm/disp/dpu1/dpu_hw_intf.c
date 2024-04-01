@@ -518,10 +518,10 @@ static void dpu_hw_intf_disable_autorefresh(struct dpu_hw_intf *intf,
 
 }
 
-static void dpu_hw_intf_program_intf_cmd_cfg(struct dpu_hw_intf *ctx,
+static void dpu_hw_intf_program_intf_cmd_cfg(struct dpu_hw_intf *intf,
 					     struct dpu_hw_intf_cmd_mode_cfg *cmd_mode_cfg)
 {
-	u32 intf_cfg2 = DPU_REG_READ(&ctx->hw, INTF_CONFIG2);
+	u32 intf_cfg2 = DPU_REG_READ(&intf->hw, INTF_CONFIG2);
 
 	if (cmd_mode_cfg->data_compress)
 		intf_cfg2 |= INTF_CFG2_DCE_DATA_COMPRESS;
@@ -529,7 +529,7 @@ static void dpu_hw_intf_program_intf_cmd_cfg(struct dpu_hw_intf *ctx,
 	if (cmd_mode_cfg->wide_bus_en)
 		intf_cfg2 |= INTF_CFG2_DATABUS_WIDEN;
 
-	DPU_REG_WRITE(&ctx->hw, INTF_CONFIG2, intf_cfg2);
+	DPU_REG_WRITE(&intf->hw, INTF_CONFIG2, intf_cfg2);
 }
 
 struct dpu_hw_intf *dpu_hw_intf_init(struct drm_device *dev,
