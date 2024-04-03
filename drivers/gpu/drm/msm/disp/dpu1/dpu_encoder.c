@@ -622,7 +622,7 @@ static struct msm_display_topology dpu_encoder_get_topology(
 		 */
 		topology.num_dsc = 2;
 		topology.num_lm = 2;
-		topology.num_intf = 1;
+		topology.num_intf = 2;
 	}
 
 	return topology;
@@ -1910,25 +1910,27 @@ static void dpu_encoder_prep_dsc(struct dpu_encoder_virt *dpu_enc,
 	struct dpu_hw_pingpong *hw_pp[MAX_CHANNELS_PER_ENC];
 	int this_frame_slices;
 	int intf_ip_w, enc_ip_w;
-	int dsc_common_mode;
+	int dsc_common_mode = 0;
 	int pic_width;
 	u32 initial_lines;
 	int i;
+	int num_dsc = 0;
 
 	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
 		hw_pp[i] = dpu_enc->hw_pp[i];
 		hw_dsc[i] = dpu_enc->hw_dsc[i];
 
 		if (!hw_pp[i] || !hw_dsc[i]) {
-			DPU_ERROR_ENC(dpu_enc, "invalid params for DSC\n");
-			return;
+			break;
 		}
+		num_dsc++;
 	}
 
 	dsc_common_mode = 0;
 	pic_width = dsc->pic_width;
 
-	dsc_common_mode = DSC_MODE_SPLIT_PANEL;
+	if (num_dsc > 1)
+		dsc_common_mode = DSC_MODE_SPLIT_PANEL;
 	if (dpu_encoder_use_dsc_merge(enc_master->parent))
 		dsc_common_mode |= DSC_MODE_MULTIPLEX;
 	if (enc_master->intf_mode == INTF_MODE_VIDEO)
@@ -1941,10 +1943,11 @@ static void dpu_encoder_prep_dsc(struct dpu_encoder_virt *dpu_enc,
 	 * dsc merge case: when using 2 encoders for the same stream,
 	 * no. of slices need to be same on both the encoders.
 	 */
-	enc_ip_w = intf_ip_w / 2;
-	initial_lines = dpu_encoder_dsc_initial_line_calc(dsc, enc_ip_w);
+	enc_ip_w = intf_ip_w / num_dsc;
+	//initial_lines = dpu_encoder_dsc_initial_line_calc(dsc, enc_ip_w);
+	initial_lines = 3;
 
-	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++)
+	for (i = 0; i < num_dsc; i++)
 		dpu_encoder_dsc_pipe_cfg(ctl, hw_dsc[i], hw_pp[i],
 					 dsc, dsc_common_mode, initial_lines);
 }
