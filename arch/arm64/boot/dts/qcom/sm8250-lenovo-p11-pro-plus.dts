@@ -181,6 +181,8 @@
 			regulator-min-microvolt = <3008000>;
 			regulator-max-microvolt = <3008000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+
+			regualtor-always-on; //TEMP
 		};
 
 		vreg_l14a: ldo14 {
@@ -474,7 +476,22 @@
 	clock-frequency = <400000>;
 	status = "okay";
 
-	/* Goodix GT7386 (Touchscreen) @ 5d */
+	/* Touchscreen is actually GT7385P */
+	touchscreen@5d {
+		compatible = "goodix,gt7375p";
+		reg = <0x5d>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ts_active>;
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <39 IRQ_TYPE_EDGE_BOTH>;
+
+		panel = <&panel>;
+		reset-gpios = <&tlmm 38 GPIO_ACTIVE_HIGH>;
+
+		vdd-supply = <&vreg_l1c>;
+		mainboard-vddio-supply = <&vreg_l14a>;
+	};
 };
 
 &i2c15 {
@@ -500,7 +517,7 @@
 
 	status = "okay";
 
-	panel@0 {
+	panel: panel@0 {
 		compatible = "raydium,rm69380";
 		reg = <0>;
 
@@ -615,7 +632,7 @@
 	display_panel_avdd_default: display-panel-avdd-default-state {
 		pins = "gpio61";
 		function = "gpio";
-		drive-strenght = <8>;
+		drive-strength = <8>;
 		bias-disable;
 		output-high;
 	};
@@ -625,6 +642,13 @@
 		function = "mdp_vsync";
 		drive-strength = <2>;
 		bias-pull-down;
+	};
+
+	ts_active: ts-active-state {
+		pins = "gpio38", "gpio39";
+		function = "gpio";
+		bias-pull-up;
+		drive-strength = <8>;
 	};
 };
 
