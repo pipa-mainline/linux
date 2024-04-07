@@ -174,7 +174,7 @@ static int rm69380_get_modes(struct drm_panel *panel,
 {
 	struct drm_display_mode *mode;
 
-	mode = drm_mode_duplicate(connector->dev, &rm69380_panel_mode);
+	mode = drm_mode_duplicate(connector->dev, &rm69380_mode);
 	if (!mode)
 		return -ENOMEM;
 
@@ -251,7 +251,7 @@ static int rm69380_probe(struct mipi_dsi_device *dsi)
 	ctx->dsi[0] = dsi;
 	mipi_dsi_set_drvdata(dsi, ctx);
 
-	drm_panel_init(&ctx->panel, dev, &rm69380_panel_panel_funcs,
+	drm_panel_init(&ctx->panel, dev, &rm69380_panel_funcs,
 		       DRM_MODE_CONNECTOR_DSI);
 	ctx->panel.prepare_prev_first = true;
 
@@ -292,18 +292,18 @@ static void rm69380_remove(struct mipi_dsi_device *dsi)
 	drm_panel_remove(&ctx->panel);
 }
 
-static const struct of_device_id rm69380_panel_of_match[] = {
+static const struct of_device_id rm69380_of_match[] = {
 	{ .compatible = "lenovo,rm69380-edo" }, // FIXME
 	{ /* sentinel */ }
 };
-MODULE_DEVICE_TABLE(of, rm69380_panel_of_match);
+MODULE_DEVICE_TABLE(of, rm69380_of_match);
 
 static struct mipi_dsi_driver rm69380_panel_driver = {
-	.probe = rm69380_panel_probe,
-	.remove = rm69380_panel_remove,
+	.probe = rm69380_probe,
+	.remove = rm69380_remove,
 	.driver = {
 		.name = "panel-rm69380-edo-amoled",
-		.of_match_table = rm69380_panel_of_match,
+		.of_match_table = rm69380_of_match,
 	},
 };
 module_mipi_dsi_driver(rm69380_panel_driver);
