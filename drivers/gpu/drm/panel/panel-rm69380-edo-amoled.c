@@ -18,7 +18,7 @@ struct rm69380_edo_amoled {
 	struct drm_panel panel;
 	struct mipi_dsi_device *dsi;
 	struct regulator *supply;
-	struct gpio_desc *reset_gpio;
+	//struct gpio_desc *reset_gpio;
 	bool prepared;
 };
 
@@ -28,15 +28,15 @@ struct rm69380_edo_amoled *to_rm69380_edo_amoled(struct drm_panel *panel)
 	return container_of(panel, struct rm69380_edo_amoled, panel);
 }
 
-static void rm69380_edo_amoled_reset(struct rm69380_edo_amoled *ctx)
-{
-	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
-	usleep_range(15000, 16000);
-	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
-	usleep_range(10000, 11000);
-	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
-	msleep(30);
-}
+//static void rm69380_edo_amoled_reset(struct rm69380_edo_amoled *ctx)
+//{
+//	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
+//	usleep_range(15000, 16000);
+//	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
+//	usleep_range(10000, 11000);
+//	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
+//	msleep(30);
+//}
 
 static int rm69380_edo_amoled_on(struct rm69380_edo_amoled *ctx)
 {
@@ -57,7 +57,7 @@ static int rm69380_edo_amoled_on(struct rm69380_edo_amoled *ctx)
 	mipi_dsi_dcs_write_seq(dsi, 0x53, 0x28);
 	mipi_dsi_dcs_write_seq(dsi, 0xc2, 0x08);
 	mipi_dsi_dcs_write_seq(dsi, 0x35, 0x00);
-	mipi_dsi_dcs_write_seq(dsi, 0x51, 0x07, 0xff);
+	mipi_dsi_dcs_write_seq(dsi, 0x51, 0x01, 0xff); // Let's see if reducing brightness works
 
 	ret = mipi_dsi_dcs_exit_sleep_mode(dsi);
 	if (ret < 0) {
@@ -116,12 +116,12 @@ static int rm69380_edo_amoled_prepare(struct drm_panel *panel)
 		return ret;
 	}
 
-	rm69380_edo_amoled_reset(ctx);
+	//rm69380_edo_amoled_reset(ctx);
 
 	ret = rm69380_edo_amoled_on(ctx);
 	if (ret < 0) {
 		dev_err(dev, "Failed to initialize panel: %d\n", ret);
-		gpiod_set_value_cansleep(ctx->reset_gpio, 1);
+		//gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 		regulator_disable(ctx->supply);
 		return ret;
 	}
@@ -143,7 +143,7 @@ static int rm69380_edo_amoled_unprepare(struct drm_panel *panel)
 	if (ret < 0)
 		dev_err(dev, "Failed to un-initialize panel: %d\n", ret);
 
-	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
+	//gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 	regulator_disable(ctx->supply);
 
 	ctx->prepared = false;
@@ -259,10 +259,10 @@ static int rm69380_edo_amoled_probe(struct mipi_dsi_device *dsi)
 		return dev_err_probe(dev, PTR_ERR(ctx->supply),
 				     "Failed to get vddio regulator\n");
 
-	ctx->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
-	if (IS_ERR(ctx->reset_gpio))
-		return dev_err_probe(dev, PTR_ERR(ctx->reset_gpio),
-				     "Failed to get reset-gpios\n");
+	//ctx->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
+	//if (IS_ERR(ctx->reset_gpio))
+	//	return dev_err_probe(dev, PTR_ERR(ctx->reset_gpio),
+	//			     "Failed to get reset-gpios\n");
 
 	ctx->dsi = dsi;
 	mipi_dsi_set_drvdata(dsi, ctx);
