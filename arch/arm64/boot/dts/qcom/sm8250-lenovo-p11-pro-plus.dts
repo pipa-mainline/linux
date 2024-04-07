@@ -23,22 +23,7 @@
 	qcom,board-id = <0x2010008 0>;
 
 	chosen {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-
 		bootargs = "PMOS_NO_OUTPUT_REDIRECT PMOS_NOSPLASH";
-
-#if 0
-		framebuffer0: framebuffer@9c000000 {
-			compatible = "simple-framebuffer";
-			reg = <0x0 0x9c000000 0x0 (2560 * 1600 * 4)>;
-			width = <2560>;
-			height = <1600>;
-			stride = <(2560 * 4)>;
-			format = "a8r8g8b8";
-		};
-#endif
 	};
 
 	gpio-keys {
@@ -50,15 +35,6 @@
 			gpios = <&pm8150_gpios 6 GPIO_ACTIVE_LOW>;
 			debounce-interval = <15>;
 		};
-	};
-
-	reserved-memory {
-#if 0
-		cont_splash_mem: memory@9c000000 {
-			reg = <0x0 0x9c000000 0x0 (2560 * 1600 * 4)>;
-			no-map;
-		};
-#endif
 	};
 
 	vph_pwr: vph-pwr-regulator {
@@ -79,30 +55,30 @@
 		vin-supply = <&vph_pwr>;
 	};
 
-#if 0
-	disp_regulator: regulator-disp {
+	display_panel_avdd: display-gpio-regulator {
 		compatible = "regulator-fixed";
-		regulator-name = "disp_regulator";
+		regulator-name = "display_panel_avdd";
 		regulator-min-microvolt = "5500000";
 		regulator-max-microvolt = "5500000";
 		regulator-enable-ramp-delay = <233>;
 
+		pinctrl-0 = <&display_panel_avdd_default>;
+		pinctrl-names = "default";
+
 		gpio = <&tlmm 61 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
-		regulator-always-on;
+		regulator-boot-on;
 	};
-#endif
-	//TODO: Add display_panel_avdd regulator (if needed)
 };
 
-&adsp {
-	firmware-name = "qcom/sm8250/LENOVO/J716F/adsp.mbn";
-	status = "okay";
-};
-
-&aoncc {
-	status = "disabled";
-};
+//&adsp {
+//	firmware-name = "qcom/sm8250/LENOVO/J716F/adsp.mbn";
+//	status = "okay";
+//};
+//
+//&aoncc {
+//	status = "disabled";
+//};
 
 &apps_rsc {
 	regulators-0 {
@@ -462,22 +438,14 @@
 	};
 };
 
-&audiocc {
-	status = "disabled";
-};
+//&audiocc {
+//	status = "disabled";
+//};
 
-&cdsp {
-	firmware-name = "qcom/sm8250/LENOVO/J716F/cdsp.mbn";
-	status = "okay";
-};
-
-&crypto {
-	status = "disabled";
-};
-
-&gmu {
-	status = "okay";
-};
+//&cdsp {
+//	firmware-name = "qcom/sm8250/LENOVO/J716F/cdsp.mbn";
+//	status = "okay";
+//};
 
 &gpi_dma0 {
 	status = "okay";
@@ -538,10 +506,6 @@
 	/* Richwave RTC6226 FM Radio Receiver @ 64 */
 };
 
-&lpass_tlmm {
-	status = "disabled";
-};
-
 &mdss {
 	status = "okay";
 };
@@ -555,14 +519,16 @@
 	status = "okay";
 
 	panel@0 {
-		compatible = "mdss,rm69380-edo-amoled";
+		compatible = "raydium,rm69380";
 		reg = <0>;
 
 		vddio-supply = <&vreg_l14a>;
+		avdd-supply = <&display_panel_avdd>;
 		reset-gpios = <&tlmm 75 GPIO_ACTIVE_LOW>;
 
-		pinctrl-0 = <&disp_vsync_active>;
-		pinctrl-names = "default";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active_sleep>;
+		pinctrl-1 = <&sde_dsi_sleep &sde_te_active_sleep>;
+		pinctrl-names = "default", "sleep";
 
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -640,16 +606,40 @@
 	status = "okay";
 };
 
-&slpi {
-	firmware-name = "qcom/sm8250/LENOVO/J716F/slpi.mbn";
-	status = "okay";
-};
+//&slpi {
+//	firmware-name = "qcom/sm8250/LENOVO/J716F/slpi.mbn";
+//	status = "okay";
+//};
 
 &tlmm {
 	gpio-reserved-ranges = <40 4>;
 
-	disp_vsync_active: disp-vsync-active-state {
-		pins = "gpio66", "gpio67";
+	sde_dsi_active: sde_dsi_active-state {
+		pins = "gpio75";
+		function = "gpio";
+		drive-strength = <8>;
+		bias-disable;
+		output-high;
+	};
+
+	sde_dsi_sleep: sde-dsi-sleep-state {
+		pins = "gpio75";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-down;
+		output-high;
+	};
+
+	display_panel_avdd_default: display-panel-avdd-default-state {
+		pins = "gpio61";
+		function = "gpio";
+		drive-strenght = <8>;
+		bias-disable;
+		output-high;
+	};
+
+	sde_te_active_sleep: sde_te_active-state {
+		pins = "gpio66";
 		function = "mdp_vsync";
 		drive-strength = <2>;
 		bias-pull-down;
