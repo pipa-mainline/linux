@@ -15,7 +15,7 @@
 #include <drm/drm_modes.h>
 #include <drm/drm_panel.h>
 
-struct rm69380_edo_amoled {
+struct rm69380_panel {
 	struct drm_panel panel;
 	struct mipi_dsi_device *dsi[2];
 	struct regulator_bulk_data supplies[2];
@@ -24,12 +24,12 @@ struct rm69380_edo_amoled {
 };
 
 static inline
-struct rm69380_edo_amoled *to_rm69380_edo_amoled(struct drm_panel *panel)
+struct rm69380_panel *to_rm69380_panel(struct drm_panel *panel)
 {
-	return container_of(panel, struct rm69380_edo_amoled, panel);
+	return container_of(panel, struct rm69380_panel, panel);
 }
 
-static void rm69380_edo_amoled_reset(struct rm69380_edo_amoled *ctx)
+static void rm69380_reset(struct rm69380_panel *ctx)
 {
 	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
 	usleep_range(15000, 16000);
@@ -39,7 +39,7 @@ static void rm69380_edo_amoled_reset(struct rm69380_edo_amoled *ctx)
 	msleep(30);
 }
 
-static int rm69380_edo_amoled_on(struct rm69380_edo_amoled *ctx)
+static int rm69380_on(struct rm69380_panel *ctx)
 {
 	struct mipi_dsi_device *dsi = ctx->dsi[0];
 	struct device *dev = &dsi->dev;
@@ -79,7 +79,7 @@ static int rm69380_edo_amoled_on(struct rm69380_edo_amoled *ctx)
 	return 0;
 }
 
-static int rm69380_edo_amoled_off(struct rm69380_edo_amoled *ctx)
+static int rm69380_off(struct rm69380_panel *ctx)
 {
 	struct mipi_dsi_device *dsi = ctx->dsi[0];
 	struct device *dev = &dsi->dev;
@@ -106,9 +106,9 @@ static int rm69380_edo_amoled_off(struct rm69380_edo_amoled *ctx)
 	return 0;
 }
 
-static int rm69380_edo_amoled_prepare(struct drm_panel *panel)
+static int rm69380_prepare(struct drm_panel *panel)
 {
-	struct rm69380_edo_amoled *ctx = to_rm69380_edo_amoled(panel);
+	struct rm69380_panel *ctx = to_rm69380_panel(panel);
 	struct device *dev = &ctx->dsi[0]->dev;
 	int ret;
 
@@ -121,9 +121,9 @@ static int rm69380_edo_amoled_prepare(struct drm_panel *panel)
 		return ret;
 	}
 
-	rm69380_edo_amoled_reset(ctx);
+	rm69380_reset(ctx);
 
-	ret = rm69380_edo_amoled_on(ctx);
+	ret = rm69380_on(ctx);
 	if (ret < 0) {
 		dev_err(dev, "Failed to initialize panel: %d\n", ret);
 		gpiod_set_value_cansleep(ctx->reset_gpio, 1);
@@ -135,16 +135,16 @@ static int rm69380_edo_amoled_prepare(struct drm_panel *panel)
 	return 0;
 }
 
-static int rm69380_edo_amoled_unprepare(struct drm_panel *panel)
+static int rm69380_unprepare(struct drm_panel *panel)
 {
-	struct rm69380_edo_amoled *ctx = to_rm69380_edo_amoled(panel);
+	struct rm69380_panel *ctx = to_rm69380_panel(panel);
 	struct device *dev = &ctx->dsi[0]->dev;
 	int ret;
 
 	if (!ctx->prepared)
 		return 0;
 
-	ret = rm69380_edo_amoled_off(ctx);
+	ret = rm69380_off(ctx);
 	if (ret < 0)
 		dev_err(dev, "Failed to un-initialize panel: %d\n", ret);
 
@@ -155,7 +155,7 @@ static int rm69380_edo_amoled_unprepare(struct drm_panel *panel)
 	return 0;
 }
 
-static const struct drm_display_mode rm69380_edo_amoled_mode = {
+static const struct drm_display_mode rm69380_mode = {
 	.clock = (2560 + 32 + 12 + 38) * (1600 + 20 + 4 + 8) * 90 / 1000,
 	.hdisplay = 2560,
 	.hsync_start = 2560 + 32,
@@ -169,12 +169,12 @@ static const struct drm_display_mode rm69380_edo_amoled_mode = {
 	.height_mm = 0,
 };
 
-static int rm69380_edo_amoled_get_modes(struct drm_panel *panel,
+static int rm69380_get_modes(struct drm_panel *panel,
 					struct drm_connector *connector)
 {
 	struct drm_display_mode *mode;
 
-	mode = drm_mode_duplicate(connector->dev, &rm69380_edo_amoled_mode);
+	mode = drm_mode_duplicate(connector->dev, &rm69380_panel_mode);
 	if (!mode)
 		return -ENOMEM;
 
@@ -188,21 +188,19 @@ static int rm69380_edo_amoled_get_modes(struct drm_panel *panel,
 	return 1;
 }
 
-static const struct drm_panel_funcs rm69380_edo_amoled_panel_funcs = {
-	.prepare = rm69380_edo_amoled_prepare,
-	.unprepare = rm69380_edo_amoled_unprepare,
-	.get_modes = rm69380_edo_amoled_get_modes,
+static const struct drm_panel_funcs rm69380_panel_funcs = {
+	.prepare = rm69380_prepare,
+	.unprepare = rm69380_unprepare,
+	.get_modes = rm69380_get_modes,
 };
 
-static int rm69380_edo_amoled_probe(struct mipi_dsi_device *dsi)
+static int rm69380_probe(struct mipi_dsi_device *dsi)
 {
 	struct mipi_dsi_host *dsi_sec_host;
-	struct rm69380_edo_amoled *ctx;
+	struct rm69380_panel *ctx;
 	struct device *dev = &dsi->dev;
 	struct device_node *dsi_sec;
 	int ret, i;
-
-	printk("%s: PROBING PANEL", __func__);
 
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
@@ -253,7 +251,7 @@ static int rm69380_edo_amoled_probe(struct mipi_dsi_device *dsi)
 	ctx->dsi[0] = dsi;
 	mipi_dsi_set_drvdata(dsi, ctx);
 
-	drm_panel_init(&ctx->panel, dev, &rm69380_edo_amoled_panel_funcs,
+	drm_panel_init(&ctx->panel, dev, &rm69380_panel_panel_funcs,
 		       DRM_MODE_CONNECTOR_DSI);
 	ctx->panel.prepare_prev_first = true;
 
@@ -279,14 +277,12 @@ static int rm69380_edo_amoled_probe(struct mipi_dsi_device *dsi)
 		}
 	}
 
-	printk("%s: PROBE DONE", __func__);
-
 	return 0;
 }
 
-static void rm69380_edo_amoled_remove(struct mipi_dsi_device *dsi)
+static void rm69380_remove(struct mipi_dsi_device *dsi)
 {
-	struct rm69380_edo_amoled *ctx = mipi_dsi_get_drvdata(dsi);
+	struct rm69380_panel *ctx = mipi_dsi_get_drvdata(dsi);
 	int ret;
 
 	ret = mipi_dsi_detach(dsi);
@@ -296,22 +292,22 @@ static void rm69380_edo_amoled_remove(struct mipi_dsi_device *dsi)
 	drm_panel_remove(&ctx->panel);
 }
 
-static const struct of_device_id rm69380_edo_amoled_of_match[] = {
-	{ .compatible = "raydium,rm69380" }, // FIXME
+static const struct of_device_id rm69380_panel_of_match[] = {
+	{ .compatible = "lenovo,rm69380-edo" }, // FIXME
 	{ /* sentinel */ }
 };
-MODULE_DEVICE_TABLE(of, rm69380_edo_amoled_of_match);
+MODULE_DEVICE_TABLE(of, rm69380_panel_of_match);
 
-static struct mipi_dsi_driver rm69380_edo_amoled_driver = {
-	.probe = rm69380_edo_amoled_probe,
-	.remove = rm69380_edo_amoled_remove,
+static struct mipi_dsi_driver rm69380_panel_driver = {
+	.probe = rm69380_panel_probe,
+	.remove = rm69380_panel_remove,
 	.driver = {
 		.name = "panel-rm69380-edo-amoled",
-		.of_match_table = rm69380_edo_amoled_of_match,
+		.of_match_table = rm69380_panel_of_match,
 	},
 };
-module_mipi_dsi_driver(rm69380_edo_amoled_driver);
+module_mipi_dsi_driver(rm69380_panel_driver);
 
 MODULE_AUTHOR("linux-mdss-dsi-panel-driver-generator <fix@me>"); // FIXME
-MODULE_DESCRIPTION("DRM driver for rm69380 amoled wqxga cmd mode dsi edo panel");
+MODULE_DESCRIPTION("DRM driver for Raydium RM69380-equipped DSI panels");
 MODULE_LICENSE("GPL");

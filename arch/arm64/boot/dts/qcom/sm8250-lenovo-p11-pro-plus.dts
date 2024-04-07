@@ -71,15 +71,6 @@
 	};
 };
 
-//&adsp {
-//	firmware-name = "qcom/sm8250/LENOVO/J716F/adsp.mbn";
-//	status = "okay";
-//};
-//
-//&aoncc {
-//	status = "disabled";
-//};
-
 &apps_rsc {
 	regulators-0 {
 		compatible = "qcom,pm8150-rpmh-regulators";
@@ -437,15 +428,6 @@
 		};
 	};
 };
-
-//&audiocc {
-//	status = "disabled";
-//};
-
-//&cdsp {
-//	firmware-name = "qcom/sm8250/LENOVO/J716F/cdsp.mbn";
-//	status = "okay";
-//};
 
 &gpi_dma0 {
 	status = "okay";
