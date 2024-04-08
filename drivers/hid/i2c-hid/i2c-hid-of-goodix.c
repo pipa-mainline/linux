@@ -5,6 +5,8 @@
  * Copyright 2020 Google LLC
  */
 
+#define DEBUG
+
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/gpio/consumer.h>

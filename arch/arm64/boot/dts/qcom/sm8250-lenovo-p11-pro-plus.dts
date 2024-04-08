@@ -181,8 +181,6 @@
 			regulator-min-microvolt = <3008000>;
 			regulator-max-microvolt = <3008000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-			//tmp
-			regulator-always-on;
 		};
 
 		vreg_l14a: ldo14 {
@@ -281,8 +279,6 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-
-			//regulator-always-on;
 		};
 
 		vreg_l2c: ldo2 {
@@ -475,23 +471,23 @@
 };
 
 &i2c13 {
-	clock-frequency = <400000>;
 	status = "okay";
+	clock-frequency = <400000>;
 
 	touchscreen@5d {
 		compatible = "goodix,gt7385p", "goodix,gt7375p";
 		reg = <0x5d>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&ts_active>;
+		pinctrl-0 = <&ts_int_conn>, <&ts_rst_conn>;
 
 		interrupt-parent = <&tlmm>;
 		interrupts = <39 IRQ_TYPE_LEVEL_LOW>;
 
-		//panel = <&panel>; Getting Power on failed: -6 as panel follower
+		panel = <&panel>;
 		reset-gpios = <&tlmm 38 GPIO_ACTIVE_LOW>;
 
 		vdd-supply = <&vreg_l1c>;
-		mainboard-vddio-supply = <&vreg_l14a>;
+		mainboard-vddio-supply = <&vreg_l13a>;
 	};
 };
 
@@ -640,12 +636,18 @@
 		bias-pull-down;
 	};
 
-	ts_active: ts-active-state {
-		pins = "gpio38", "gpio39";
-		function = "gpio";
-		drive-strength = <8>;
-		bias-pull-up;
+	ts_int_conn: ts-int-conn-state {
+	        pins = "gpio39";
+	        function = "gpio";
+	        bias-pull-up;
 	};
+
+	ts_rst_conn: ts-rst-conn-state {
+	        pins = "gpio38";
+	        function = "gpio";
+	        drive-strength = <2>;
+	};
+
 };
 
 &ufs_mem_hc {
