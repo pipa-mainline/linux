@@ -181,8 +181,8 @@
 			regulator-min-microvolt = <3008000>;
 			regulator-max-microvolt = <3008000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-
-			regualtor-always-on; //TEMP
+			//tmp
+			regulator-always-on;
 		};
 
 		vreg_l14a: ldo14 {
@@ -281,6 +281,8 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+
+			//regulator-always-on;
 		};
 
 		vreg_l2c: ldo2 {
@@ -454,7 +456,7 @@
 	clock-frequency = <400000>;
 	status = "okay";
 
-	bq27541@55 {
+	fuel-gauge@55 {
 		compatible = "ti,bq27541";
 		reg = <0x55>;
 	};
@@ -476,18 +478,17 @@
 	clock-frequency = <400000>;
 	status = "okay";
 
-	/* Touchscreen is actually GT7385P */
 	touchscreen@5d {
-		compatible = "goodix,gt7375p";
+		compatible = "goodix,gt7385p", "goodix,gt7375p";
 		reg = <0x5d>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&ts_active>;
 
 		interrupt-parent = <&tlmm>;
-		interrupts = <39 IRQ_TYPE_EDGE_BOTH>;
+		interrupts = <39 IRQ_TYPE_LEVEL_LOW>;
 
-		panel = <&panel>;
-		reset-gpios = <&tlmm 38 GPIO_ACTIVE_HIGH>;
+		//panel = <&panel>; Getting Power on failed: -6 as panel follower
+		reset-gpios = <&tlmm 38 GPIO_ACTIVE_LOW>;
 
 		vdd-supply = <&vreg_l1c>;
 		mainboard-vddio-supply = <&vreg_l14a>;
@@ -518,7 +519,7 @@
 	status = "okay";
 
 	panel: panel@0 {
-		compatible = "raydium,rm69380";
+		compatible = "lenovo,rm69380-edo", "raydium,rm69380";
 		reg = <0>;
 
 		vddio-supply = <&vreg_l14a>;
@@ -605,11 +606,6 @@
 	status = "okay";
 };
 
-//&slpi {
-//	firmware-name = "qcom/sm8250/LENOVO/J716F/slpi.mbn";
-//	status = "okay";
-//};
-
 &tlmm {
 	gpio-reserved-ranges = <40 4>;
 
@@ -647,8 +643,8 @@
 	ts_active: ts-active-state {
 		pins = "gpio38", "gpio39";
 		function = "gpio";
-		bias-pull-up;
 		drive-strength = <8>;
+		bias-pull-up;
 	};
 };
 

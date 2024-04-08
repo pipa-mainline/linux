@@ -60,7 +60,7 @@ static int rm69380_on(struct rm69380_panel *ctx)
 	mipi_dsi_dcs_write_seq(dsi, 0x53, 0x28);
 	mipi_dsi_dcs_write_seq(dsi, 0xc2, 0x08);
 	mipi_dsi_dcs_write_seq(dsi, 0x35, 0x00);
-	mipi_dsi_dcs_write_seq(dsi, 0x51, 0x07, 0xff);
+	mipi_dsi_dcs_write_seq(dsi, 0x51, 0x01, 0xff);
 
 	ret = mipi_dsi_dcs_exit_sleep_mode(dsi);
 	if (ret < 0) {
