@@ -474,20 +474,36 @@
 	status = "okay";
 	clock-frequency = <400000>;
 
+	//touchscreen@5d {
+	//	compatible = "goodix,gt7385p", "goodix,gt7375p";
+	//	reg = <0x5d>;
+	//	pinctrl-names = "default";
+	//	pinctrl-0 = <&ts_int_conn>, <&ts_rst_conn>;
+
+	//	interrupt-parent = <&tlmm>;
+	//	interrupts = <39 IRQ_TYPE_LEVEL_HIGH>;
+
+	//	panel = <&panel>;
+	//	reset-gpios = <&tlmm 38 GPIO_ACTIVE_HIGH>;
+
+	//	vdd-supply = <&vreg_l1c>;
+	//	mainboard-vddio-supply = <&vreg_l13a>;
+	//};
+
 	touchscreen@5d {
-		compatible = "goodix,gt7385p", "goodix,gt7375p";
+		compatible = "goodix,gt738x";
 		reg = <0x5d>;
-		pinctrl-names = "default";
+		pinctrl-names = "defautl";
 		pinctrl-0 = <&ts_int_conn>, <&ts_rst_conn>;
 
 		interrupt-parent = <&tlmm>;
 		interrupts = <39 IRQ_TYPE_LEVEL_LOW>;
 
-		panel = <&panel>;
+		irq-gpios = <&tlmm 39 GPIO_ACTIVE_LOW>;
 		reset-gpios = <&tlmm 38 GPIO_ACTIVE_LOW>;
 
-		vdd-supply = <&vreg_l1c>;
-		mainboard-vddio-supply = <&vreg_l13a>;
+		AVDD28-supply = <&vreg_l1c>;
+		VDDIO-supply = <&vreg_l13a>;
 	};
 };
 

@@ -899,12 +899,12 @@ static int i2c_hid_fetch_hid_descriptor(struct i2c_hid *ihid)
 	 * bytes 0-1 -> length
 	 * bytes 2-3 -> bcdVersion (has to be 1.00) */
 	/* check bcdVersion == 1.0 */
-	if (le16_to_cpu(hdesc->bcdVersion) != 0x0100) {
-		dev_err(&ihid->client->dev,
-			"unexpected HID descriptor bcdVersion (0x%04hx)\n",
-			le16_to_cpu(hdesc->bcdVersion));
-		return -ENODEV;
-	}
+	//if (le16_to_cpu(hdesc->bcdVersion) != 0x0100) {
+	//	dev_err(&ihid->client->dev,
+	//		"unexpected HID descriptor bcdVersion (0x%04hx)\n",
+	//		le16_to_cpu(hdesc->bcdVersion));
+	//	return -ENODEV;
+	//}
 
 	/* Descriptor length should be 30 bytes as per the specification */
 	dsize = le16_to_cpu(hdesc->wHIDDescLength);
