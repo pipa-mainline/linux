@@ -493,7 +493,7 @@
 	touchscreen@5d {
 		compatible = "goodix,gt738x";
 		reg = <0x5d>;
-		pinctrl-names = "defautl";
+		pinctrl-names = "default";
 		pinctrl-0 = <&ts_int_conn>, <&ts_rst_conn>;
 
 		interrupt-parent = <&tlmm>;
