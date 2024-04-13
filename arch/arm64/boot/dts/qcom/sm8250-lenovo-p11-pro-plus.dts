@@ -22,6 +22,10 @@
 	qcom,msm-id = <QCOM_ID_SM8250 0x20001>;
 	qcom,board-id = <0x2010008 0>;
 
+	aliases {
+		serial0 = &uart6;
+	};
+
 	chosen {
 		bootargs = "PMOS_NO_OUTPUT_REDIRECT PMOS_NOSPLASH";
 	};
@@ -124,9 +128,6 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1920000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-
-			//TEMP QCA6390
-			regualtor-always-on;
 		};
 
 		vreg_s5a: smps5 {
@@ -134,19 +135,13 @@
 			regulator-min-microvolt = <1900000>;
 			regulator-max-microvolt = <2040000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-
-			//TEMP QCA6390
-			regualtor-always-on;
 		};
 
 		vreg_s6a: smps6 {
 			regulator-name = "vreg_s6a";
-			regulator-min-microvolt = <950000>;
+			regulator-min-microvolt = <600000>;
 			regulator-max-microvolt = <1128000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-
-			//TEMP QCA6390
-			regualtor-always-on;
 		};
 
 		vreg_l2a: ldo2 {
@@ -305,9 +300,6 @@
 			regulator-min-microvolt = <1350000>;
 			regulator-max-microvolt = <1400000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-
-			//TEMP QCA6390
-			regualtor-always-on;
 		};
 
 		vreg_l1c: ldo1 {
@@ -342,9 +334,6 @@
 			regulator-name = "vreg_l5c";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2800000>;
-
-			//TEMP QCA6390
-			regualtor-always-on;regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
 		vreg_l6c: ldo6 {
@@ -414,9 +403,6 @@
 			regulator-min-microvolt = <512000>;
 			regulator-max-microvolt = <1100000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-
-			//TEMP QCA6390
-			regualtor-always-on;
 		};
 
 		vreg_l1f: ldo1 {
@@ -475,6 +461,14 @@
 	status = "okay";
 };
 
+&crypto {
+	status = "disabled";
+};
+
+&gmu {
+	status = "okay";
+};
+
 &gpi_dma0 {
 	status = "okay";
 };
@@ -485,6 +479,15 @@
 
 &gpi_dma2 {
 	status = "okay";
+};
+
+&gpu {
+	status = "okay";
+
+	zap-shader {
+		memory-region = <&gpu_mem>;
+		firmware-name = "qcom/sm8250/LENOVO/J716F/a650_zap.mbn";
+	};
 };
 
 &i2c1 {
@@ -638,9 +641,6 @@
 	vdda-phy-supply = <&vreg_l5a>;
 	vdda-pll-supply = <&vreg_l9a>;
 
-	/* Power on QCA639x chip, otherwise PCIe bus timeouts */
-	//power-domains = <&qca639x>;
-
 	status = "okay";
 };
 
@@ -763,11 +763,18 @@
 
 	bluetooth {
 		compatible = "qcom,qca6390-bt";
+
 		pinctrl-names = "default";
 		pinctrl-0 = <&bt_en_state>;
 
-		power-domains = <&qca639x>;
 		enable-gpios = <&tlmm 21 GPIO_ACTIVE_HIGH>;
+
+		vddio-supply = <&vreg_s4a>; /* Not sure where this comes from */
+		vddaon-supply = <&vreg_s6a>;
+		vddrfa1p3-supply = <&vreg_s8c>;
+		vddrfa1p9-supply = <&vreg_s5a>;
+
+		power-domains = <&qca639x>;
 	};
 };
 
@@ -812,7 +819,19 @@
 	status = "okay";
 };
 
+//FIXME
+&audiocc { status = "disabled"; };
+&vamacro { status = "disabled"; };
+&rxmacro { status = "disabled"; };
+&swr1 { status = "disabled"; };
+&txmacro { status = "disabled"; };
+&swr2 { status = "disabled"; };
+&aoncc { status = "disabled"; };
+&lpass_tlmm { status = "disabled"; };
+&swr0 { status = "disabled"; };
+
 &venus {
 	firmware-name = "qcom/sm8250/LENOVO/J716F/venus.mbn";
-	status = "okay";
+	status = "disabled";
 };
+//FIXME END
