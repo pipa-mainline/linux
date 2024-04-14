@@ -59,17 +59,17 @@
 		vin-supply = <&vph_pwr>;
 	};
 
-	qca639x: qca639x { //Need to double check this
+	qca639x: qca639x {
 		compatible = "qcom,qca6390";
 		#power-domain-cells = <0>;
 
 		vddaon-supply = <&vreg_s6a>;
-		vddpmu-supply = <&vreg_s6a>;
-		vddrfa1-supply = <&vreg_s6a>;
+		vddpmu-supply = <&vreg_s2f>;
+		vddrfa1-supply = <&vreg_s5a>;
 		vddrfa2-supply = <&vreg_s8c>;
-		vddrfa3-supply = <&vreg_s5a>;
-		vddpcie1-supply = <&vreg_s8c>;
-		vddpcie2-supply = <&vreg_s5a>;
+		vddrfa3-supply = <&vreg_l5c>;
+		vddpcie1-supply = <&vreg_l5a>;
+		vddpcie2-supply = <&vreg_l9a>;
 		vddio-supply = <&vreg_s4a>;
 
 		pinctrl-names = "default";
@@ -96,7 +96,7 @@
 
 &adsp {
         firmware-name = "qcom/sm8250/LENOVO/J716F/adsp.mbn";
-        status = "okay";
+        status = "disabled"; //FIXME
 };
 
 &apps_rsc {
@@ -128,6 +128,7 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1920000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			regulator-allow-set-load;
 		};
 
 		vreg_s5a: smps5 {
@@ -135,6 +136,7 @@
 			regulator-min-microvolt = <1900000>;
 			regulator-max-microvolt = <2040000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			regulator-allow-set-load;
 		};
 
 		vreg_s6a: smps6 {
@@ -142,6 +144,8 @@
 			regulator-min-microvolt = <600000>;
 			regulator-max-microvolt = <1128000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			regulator-allow-set-load;
+			regulator-always-on;
 		};
 
 		vreg_l2a: ldo2 {
@@ -334,6 +338,8 @@
 			regulator-name = "vreg_l5c";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			regulator-allow-set-load;
 		};
 
 		vreg_l6c: ldo6 {
@@ -341,7 +347,6 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2960000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-			regulator-allow-set-load;
 		};
 
 		vreg_l7c: ldo7 {
@@ -403,6 +408,7 @@
 			regulator-min-microvolt = <512000>;
 			regulator-max-microvolt = <1100000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			regualtor-allow-set-load;
 		};
 
 		vreg_l1f: ldo1 {
@@ -458,7 +464,7 @@
 
 &cdsp {
 	firmware-name = "qcom/sm8250/LENOVO/J716F/cdsp.mbn";
-	status = "okay";
+	status = "disabled"; //FIXME
 };
 
 &crypto {
@@ -641,28 +647,8 @@
 	vdda-phy-supply = <&vreg_l5a>;
 	vdda-pll-supply = <&vreg_l9a>;
 
-	status = "okay";
-};
-
-&pcie1 {
-	status = "okay";
-};
-
-&pcie1_phy {
-	vdda-phy-supply = <&vreg_l5a>;
-	vdda-pll-supply = <&vreg_l9a>;
-
-	status = "okay";
-};
-
-&pcie2 {
-	status = "okay";
-};
-
-&pcie2_phy {
-	vdda-phy-supply = <&vreg_l5a>;
-	vdda-pll-supply = <&vreg_l9a>;
-
+	/* Power on QCA639x chip, otherwise PCIe bus timeouts */
+	power-domains = <&qca639x>;
 	status = "okay";
 };
 
@@ -747,17 +733,15 @@
 	};
 
 	wlan_en_state: wlan-default-state {
-		wlan-en-pins {
-			pins = "gpio20";
-			function = "gpio";
-
-			drive-strength = <16>;
-			output-low;
-			bias-pull-up;
-		};
+		pins = "gpio20";
+		function = "gpio";
+		drive-strength = <16>;
+		output-low;
+		bias-pull-up;
 	};
 };
 
+#if 0
 &uart6 {
 	status = "okay";
 
@@ -777,6 +761,7 @@
 		power-domains = <&qca639x>;
 	};
 };
+#endif
 
 &ufs_mem_hc {
 	vcc-supply = <&vreg_l17a>;
