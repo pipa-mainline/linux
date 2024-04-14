@@ -584,9 +584,6 @@
 		pinctrl-1 = <&sde_dsi_sleep &sde_te_active_sleep>;
 		pinctrl-names = "default", "sleep";
 
-		#address-cells = <1>;
-		#size-cells = <0>;
-
 		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
