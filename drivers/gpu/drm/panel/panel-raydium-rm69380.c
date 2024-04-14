@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
-// Copyright (c) 2024 FIXME
-// Generated with linux-mdss-dsi-panel-driver-generator from vendor device tree:
-//   Copyright (c) 2013, The Linux Foundation. All rights reserved. (FIXME)
+// Copyright (c) 2024 David Wronek <david@mainlining.org>
 
+#include <linux/backlight.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/module.h>
@@ -60,7 +59,7 @@ static int rm69380_on(struct rm69380_panel *ctx)
 	mipi_dsi_dcs_write_seq(dsi, 0x53, 0x28);
 	mipi_dsi_dcs_write_seq(dsi, 0xc2, 0x08);
 	mipi_dsi_dcs_write_seq(dsi, 0x35, 0x00);
-	mipi_dsi_dcs_write_seq(dsi, 0x51, 0x01, 0xff);
+	mipi_dsi_dcs_write_seq(dsi, 0x51, 0x07, 0xff);
 
 	ret = mipi_dsi_dcs_exit_sleep_mode(dsi);
 	if (ret < 0) {
@@ -165,8 +164,8 @@ static const struct drm_display_mode rm69380_mode = {
 	.vsync_start = 1600 + 20,
 	.vsync_end = 1600 + 20 + 4,
 	.vtotal = 1600 + 20 + 4 + 8,
-	.width_mm = 0,
-	.height_mm = 0,
+	.width_mm = 248,
+	.height_mm = 155,
 };
 
 static int rm69380_get_modes(struct drm_panel *panel,
@@ -193,6 +192,59 @@ static const struct drm_panel_funcs rm69380_panel_funcs = {
 	.unprepare = rm69380_unprepare,
 	.get_modes = rm69380_get_modes,
 };
+
+static int rm69380_bl_update_status(struct backlight_device *bl)
+{
+	struct mipi_dsi_device *dsi = bl_get_data(bl);
+	u16 brightness = backlight_get_brightness(bl);
+	int ret;
+
+	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
+
+	ret = mipi_dsi_dcs_set_display_brightness_large(dsi, brightness);
+	if (ret < 0)
+		return ret;
+
+	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
+
+	return 0;
+}
+
+static int rm69380_bl_get_brightness(struct backlight_device *bl)
+{
+	struct mipi_dsi_device *dsi = bl_get_data(bl);
+	u16 brightness;
+	int ret;
+
+	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
+
+	ret = mipi_dsi_dcs_get_display_brightness_large(dsi, &brightness);
+	if (ret < 0)
+		return ret;
+
+	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
+
+	return brightness;
+}
+
+static const struct backlight_ops rm69380_bl_ops = {
+	.update_status = rm69380_bl_update_status,
+	.get_brightness = rm69380_bl_get_brightness,
+};
+
+static struct backlight_device *
+rm69380_create_backlight(struct mipi_dsi_device *dsi)
+{
+	struct device *dev = &dsi->dev;
+	const struct backlight_properties props = {
+		.type = BACKLIGHT_RAW,
+		.brightness = 2047,
+		.max_brightness = 2047,
+	};
+
+	return devm_backlight_device_register(dev, dev_name(dev), dev, dsi,
+					      &rm69380_bl_ops, &props);
+}
 
 static int rm69380_probe(struct mipi_dsi_device *dsi)
 {
@@ -255,6 +307,11 @@ static int rm69380_probe(struct mipi_dsi_device *dsi)
 		       DRM_MODE_CONNECTOR_DSI);
 	ctx->panel.prepare_prev_first = true;
 
+	ctx->panel.backlight = rm69380_create_backlight(dsi);
+	if (IS_ERR(ctx->panel.backlight))
+		return dev_err_probe(dev, PTR_ERR(ctx->panel.backlight),
+				     "Failed to create backlight\n");
+
 	drm_panel_add(&ctx->panel);
 
 	for (i = 0; i <ARRAY_SIZE(ctx->dsi); i++) {
@@ -268,7 +325,6 @@ static int rm69380_probe(struct mipi_dsi_device *dsi)
 		ctx->dsi[i]->mode_flags = MIPI_DSI_MODE_VIDEO_BURST |
 					  MIPI_DSI_CLOCK_NON_CONTINUOUS;
 
-		// TODO: devm_mipi_dsi_attach?
 		ret = mipi_dsi_attach(ctx->dsi[i]);
 		if (ret < 0) {
 			drm_panel_remove(&ctx->panel);
@@ -283,17 +339,23 @@ static int rm69380_probe(struct mipi_dsi_device *dsi)
 static void rm69380_remove(struct mipi_dsi_device *dsi)
 {
 	struct rm69380_panel *ctx = mipi_dsi_get_drvdata(dsi);
+	int i;
 	int ret;
 
-	ret = mipi_dsi_detach(dsi);
-	if (ret < 0)
-		dev_err(&dsi->dev, "Failed to detach from DSI host: %d\n", ret);
+	for (i = 0; i <ARRAY_SIZE(ctx->dsi); i++) {
+		if (!ctx->dsi[i])
+			continue;
+
+		ret = mipi_dsi_detach(ctx->dsi[i]);
+		if (ret < 0)
+			dev_err(&dsi->dev, "Failed to detach from DSI%d host: %d\n", i, ret);
+	}
 
 	drm_panel_remove(&ctx->panel);
 }
 
 static const struct of_device_id rm69380_of_match[] = {
-	{ .compatible = "lenovo,rm69380-edo" }, // FIXME
+	{ .compatible = "lenovo,j716f-edo-rm69380" },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, rm69380_of_match);
@@ -302,12 +364,12 @@ static struct mipi_dsi_driver rm69380_panel_driver = {
 	.probe = rm69380_probe,
 	.remove = rm69380_remove,
 	.driver = {
-		.name = "panel-rm69380-edo-amoled",
+		.name = "panel-raydium-rm69380",
 		.of_match_table = rm69380_of_match,
 	},
 };
 module_mipi_dsi_driver(rm69380_panel_driver);
 
-MODULE_AUTHOR("linux-mdss-dsi-panel-driver-generator <fix@me>"); // FIXME
+MODULE_AUTHOR("David Wronek <david@mainlining.org");
 MODULE_DESCRIPTION("DRM driver for Raydium RM69380-equipped DSI panels");
 MODULE_LICENSE("GPL");

@@ -573,7 +573,7 @@
 	status = "okay";
 
 	panel: panel@0 {
-		compatible = "lenovo,rm69380-edo", "raydium,rm69380";
+		compatible = "lenovo,j716f-edo-rm69380", "raydium,rm69380";
 		reg = <0>;
 
 		vddio-supply = <&vreg_l14a>;
