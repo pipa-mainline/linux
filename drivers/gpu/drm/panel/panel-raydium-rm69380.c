@@ -60,10 +60,20 @@ static int rm69380_on(struct rm69380_panel *ctx)
 	mipi_dsi_dcs_write_seq(dsi, 0x75, 0x3f);
 	mipi_dsi_dcs_write_seq(dsi, 0x1d, 0x1a);
 	mipi_dsi_dcs_write_seq(dsi, 0xfe, 0x00);
-	mipi_dsi_dcs_write_seq(dsi, 0x53, 0x28);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_WRITE_CONTROL_DISPLAY, 0x28);
 	mipi_dsi_dcs_write_seq(dsi, 0xc2, 0x08);
-	mipi_dsi_dcs_write_seq(dsi, 0x35, 0x00);
-	mipi_dsi_dcs_write_seq(dsi, 0x51, 0x07, 0xff);
+
+	ret = mipi_dsi_dcs_set_tear_on(dsi, MIPI_DSI_DCS_TEAR_MODE_VBLANK);
+	if (ret < 0) {
+		dev_err(dev, "Failed to set tear on: %d\n", ret);
+		return ret;
+	}
+
+	ret = mipi_dsi_dcs_set_display_brightness(dsi, 0x7ff);
+	if (ret < 0) {
+		dev_err(dev, "Failed to set display brightness: %d\n", ret);
+		return ret;
+	}
 
 	ret = mipi_dsi_dcs_exit_sleep_mode(dsi);
 	if (ret < 0) {
@@ -169,7 +179,7 @@ static const struct drm_display_mode rm69380_mode = {
 	.vtotal = 1600 + 20 + 4 + 8,
 	.width_mm = 248,
 	.height_mm = 155,
-	.type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED,
+	.type = DRM_MODE_TYPE_DRIVER,
 };
 
 static int rm69380_get_modes(struct drm_panel *panel,
@@ -279,7 +289,7 @@ static int rm69380_probe(struct mipi_dsi_device *dsi)
 		}
 
 		ctx->dsi[1] =
-			mipi_dsi_device_register_full(dsi_sec_host, &info);
+			devm_mipi_dsi_device_register_full(dev, dsi_sec_host, &info);
 		if (IS_ERR(ctx->dsi[1])) {
 			return dev_err_probe(dev, PTR_ERR(ctx->dsi[1]),
 					     "Cannot get secondary DSI node\n");
