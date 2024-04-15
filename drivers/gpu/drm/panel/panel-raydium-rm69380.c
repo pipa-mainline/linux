@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
-// Copyright (c) 2024 David Wronek <david@mainlining.org>
+/*
+ * Generated with linux-mdss-dsi-panel-driver-generator from vendor device tree.
+ * Copyright (c) 2024 David Wronek <david@mainlining.org>
+ */
 
 #include <linux/backlight.h>
 #include <linux/delay.h>
@@ -130,7 +133,6 @@ static int rm69380_prepare(struct drm_panel *panel)
 		return ret;
 	}
 
-	ctx->prepared = true;
 	return 0;
 }
 
@@ -166,25 +168,13 @@ static const struct drm_display_mode rm69380_mode = {
 	.vtotal = 1600 + 20 + 4 + 8,
 	.width_mm = 248,
 	.height_mm = 155,
+	.type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED,
 };
 
 static int rm69380_get_modes(struct drm_panel *panel,
 					struct drm_connector *connector)
 {
-	struct drm_display_mode *mode;
-
-	mode = drm_mode_duplicate(connector->dev, &rm69380_mode);
-	if (!mode)
-		return -ENOMEM;
-
-	drm_mode_set_name(mode);
-
-	mode->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
-	connector->display_info.width_mm = mode->width_mm;
-	connector->display_info.height_mm = mode->height_mm;
-	drm_mode_probed_add(connector, mode);
-
-	return 1;
+	return drm_connector_helper_get_modes_fixed(connector, &rm69380_mode);
 }
 
 static const struct drm_panel_funcs rm69380_panel_funcs = {
@@ -273,12 +263,12 @@ static int rm69380_probe(struct mipi_dsi_device *dsi)
 	dsi_sec = of_graph_get_remote_node(dsi->dev.of_node, 1, -1);
 
 	if (dsi_sec) {
-		dev_notice(dev, "Using Dual-DSI\n");
+		dev_dbg(dev, "Using Dual-DSI\n");
 
 		const struct mipi_dsi_device_info info = { "RM69380", 0,
 							   dsi_sec };
 
-		dev_notice(dev, "Found second DSI `%s`\n", dsi_sec->name);
+		dev_dbg(dev, "Found second DSI `%s`\n", dsi_sec->name);
 
 		dsi_sec_host = of_find_mipi_dsi_host_by_node(dsi_sec);
 		of_node_put(dsi_sec);
@@ -294,10 +284,10 @@ static int rm69380_probe(struct mipi_dsi_device *dsi)
 					     "Cannot get secondary DSI node\n");
 		}
 
-		dev_notice(dev, "Second DSI name `%s`\n", ctx->dsi[1]->name);
+		dev_dbg(dev, "Second DSI name `%s`\n", ctx->dsi[1]->name);
 		mipi_dsi_set_drvdata(ctx->dsi[1], ctx);
 	} else {
-		dev_notice(dev, "Using Single-DSI\n");
+		dev_dbg(dev, "Using Single-DSI\n");
 	}
 
 	ctx->dsi[0] = dsi;
@@ -314,11 +304,11 @@ static int rm69380_probe(struct mipi_dsi_device *dsi)
 
 	drm_panel_add(&ctx->panel);
 
-	for (i = 0; i <ARRAY_SIZE(ctx->dsi); i++) {
+	for (i = 0; i < ARRAY_SIZE(ctx->dsi); i++) {
 		if (!ctx->dsi[i])
 			continue;
 
-		dev_notice(&ctx->dsi[i]->dev, "Binding DSI %d\n", i);
+		dev_dbg(&ctx->dsi[i]->dev, "Binding DSI %d\n", i);
 
 		ctx->dsi[i]->lanes = 4;
 		ctx->dsi[i]->format = MIPI_DSI_FMT_RGB888;
@@ -342,7 +332,7 @@ static void rm69380_remove(struct mipi_dsi_device *dsi)
 	int i;
 	int ret;
 
-	for (i = 0; i <ARRAY_SIZE(ctx->dsi); i++) {
+	for (i = 0; i < ARRAY_SIZE(ctx->dsi); i++) {
 		if (!ctx->dsi[i])
 			continue;
 
