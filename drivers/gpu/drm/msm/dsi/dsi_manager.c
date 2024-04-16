@@ -85,6 +85,17 @@ static int dsi_mgr_setup_components(int id)
 							msm_dsi : other_dsi;
 		struct msm_dsi *slave_link_dsi = IS_MASTER_DSI_LINK(id) ?
 							other_dsi : msm_dsi;
+
+		/* PLL0 is to drive both 2 DSI link clocks in bonded DSI mode.
+		 *
+		 * Set the usecase before calling msm_dsi_host_register() to prevent it from
+		 * enabling and configuring the usecase (which is just a mux bit) first.
+		 */
+		msm_dsi_phy_set_usecase(clk_master_dsi->phy,
+					MSM_DSI_PHY_MASTER);
+		msm_dsi_phy_set_usecase(clk_slave_dsi->phy,
+					MSM_DSI_PHY_SLAVE);
+
 		/* Register slave host first, so that slave DSI device
 		 * has a chance to probe, and do not block the master
 		 * DSI device's probe.
@@ -100,10 +111,6 @@ static int dsi_mgr_setup_components(int id)
 			return ret;
 
 		/* PLL0 is to drive both 2 DSI link clocks in bonded DSI mode. */
-		msm_dsi_phy_set_usecase(clk_master_dsi->phy,
-					MSM_DSI_PHY_MASTER);
-		msm_dsi_phy_set_usecase(clk_slave_dsi->phy,
-					MSM_DSI_PHY_SLAVE);
 		msm_dsi_host_set_phy_mode(msm_dsi->host, msm_dsi->phy);
 		msm_dsi_host_set_phy_mode(other_dsi->host, other_dsi->phy);
 	}
