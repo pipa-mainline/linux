@@ -25,7 +25,6 @@ struct rm69380_panel {
 	struct mipi_dsi_device *dsi[2];
 	struct regulator_bulk_data supplies[2];
 	struct gpio_desc *reset_gpio;
-	bool prepared;
 };
 
 static inline
@@ -127,9 +126,6 @@ static int rm69380_prepare(struct drm_panel *panel)
 	struct device *dev = &ctx->dsi[0]->dev;
 	int ret;
 
-	if (ctx->prepared)
-		return 0;
-
 	ret = regulator_bulk_enable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
 	if (ret < 0) {
 		dev_err(dev, "Failed to enable regulators: %d\n", ret);
@@ -155,9 +151,6 @@ static int rm69380_unprepare(struct drm_panel *panel)
 	struct device *dev = &ctx->dsi[0]->dev;
 	int ret;
 
-	if (!ctx->prepared)
-		return 0;
-
 	ret = rm69380_off(ctx);
 	if (ret < 0)
 		dev_err(dev, "Failed to un-initialize panel: %d\n", ret);
@@ -165,7 +158,6 @@ static int rm69380_unprepare(struct drm_panel *panel)
 	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 	regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
 
-	ctx->prepared = false;
 	return 0;
 }
 
@@ -276,26 +268,22 @@ static int rm69380_probe(struct mipi_dsi_device *dsi)
 	dsi_sec = of_graph_get_remote_node(dsi->dev.of_node, 1, -1);
 
 	if (dsi_sec) {
-		dev_dbg(dev, "Using Dual-DSI\n");
-
 		const struct mipi_dsi_device_info info = { "RM69380", 0,
 							   dsi_sec };
 
-		dev_dbg(dev, "Found second DSI `%s`\n", dsi_sec->name);
+		dev_dbg(dev, "Using Dual-DSI: found `%s`\n", dsi_sec->name);
 
 		dsi_sec_host = of_find_mipi_dsi_host_by_node(dsi_sec);
 		of_node_put(dsi_sec);
-		if (!dsi_sec_host) {
+		if (!dsi_sec_host)
 			return dev_err_probe(dev, -EPROBE_DEFER,
 					     "Cannot get secondary DSI host\n");
-		}
 
 		ctx->dsi[1] =
 			devm_mipi_dsi_device_register_full(dev, dsi_sec_host, &info);
-		if (IS_ERR(ctx->dsi[1])) {
+		if (IS_ERR(ctx->dsi[1]))
 			return dev_err_probe(dev, PTR_ERR(ctx->dsi[1]),
 					     "Cannot get secondary DSI node\n");
-		}
 
 		dev_dbg(dev, "Second DSI name `%s`\n", ctx->dsi[1]->name);
 		mipi_dsi_set_drvdata(ctx->dsi[1], ctx);
@@ -330,6 +318,7 @@ static int rm69380_probe(struct mipi_dsi_device *dsi)
 
 		ret = mipi_dsi_attach(ctx->dsi[i]);
 		if (ret < 0) {
+			mipi_dsi_detach(ctx->dsi[i]);
 			drm_panel_remove(&ctx->panel);
 			return dev_err_probe(dev, ret,
 					     "Failed to attach to DSI%d\n", i);
