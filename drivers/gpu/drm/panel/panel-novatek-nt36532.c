@@ -39,7 +39,7 @@ struct panel_info {
 	struct drm_dsc_config dsc;
 	struct gpio_desc *reset_gpio;
 	struct backlight_device *backlight;
-	struct regulator_bulk_data supplies[4];
+	struct regulator_bulk_data supplies[2];
 };
 
 struct panel_desc {
@@ -78,7 +78,7 @@ static int pipa_csot_init_sequence(struct panel_info *pinfo)
 		dev_err(dev, "Failed to set compression mode: %d\n", ret);
 		return ret;
 	}
-	
+
 	mipi_dsi_dual_dcs_write_seq(dsi0, dsi1, 0xff, 0x27);
 	mipi_dsi_dual_dcs_write_seq(dsi0, dsi1, 0xfb, 0x01);
 	mipi_dsi_dual_dcs_write_seq(dsi0, dsi1, 0xd0, 0x31);
@@ -335,6 +335,7 @@ static int nt36532_prepare(struct drm_panel *panel)
 	struct drm_dsc_picture_parameter_set pps;
 	int ret;
 
+	dev_err(panel->dev, "Prepare nt36532\n");
 	ret = regulator_bulk_enable(ARRAY_SIZE(pinfo->supplies), pinfo->supplies);
 	if (ret < 0) {
 		dev_err(panel->dev, "Failed to enable regulators: %d\n", ret);
@@ -378,7 +379,7 @@ static int nt36532_enable(struct drm_panel *panel)
 	struct mipi_dsi_device *dsi = pinfo->dsi[0];
 	struct device *dev = &dsi->dev;
 	int ret;
-
+	dev_err(dev, "Enable nt36532\n");
 	ret = mipi_dsi_dcs_set_display_on(dsi);
 	if (ret < 0) {
 		dev_err(dev, "Failed to set display on: %d\n", ret);
@@ -386,7 +387,7 @@ static int nt36532_enable(struct drm_panel *panel)
 	}
 	usleep_range(10000, 11000);
 
-	drm_dsc_pps_payload_pack(&pps, &pinfo->dsc);
+	drm_dsc_pps_payload_pack(&pps, &pinfo->desc->dsc);
 
 	print_hex_dump(KERN_INFO, "DSC:", DUMP_PREFIX_NONE, 16,
 	       1, (void *)&pps, sizeof(pps), false);
@@ -571,8 +572,6 @@ dev_err(dev, "Probe nt36532\n");
 	pinfo->supplies[0].supply = "vddio";
 	pinfo->supplies[1].supply = "dvddbuck";
 	pinfo->supplies[2].supply = "dvddldo";
-	pinfo->supplies[3].supply = "enp";
-	pinfo->supplies[4].supply = "enn";
 	ret = devm_regulator_bulk_get(dev, ARRAY_SIZE(pinfo->supplies),
 				      pinfo->supplies);
 	if (ret < 0)

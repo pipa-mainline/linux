@@ -573,8 +573,6 @@
 		vddio-supply = <&vreg_l14a_1p88>;
 		dvddbuck-supply = <&display_panel_dvdd_buck>;
 		dvddldo-supply = <&display_panel_dvdd_ldo>;
-		enp-supply = <&bl_vddpos_5p5>;
-		enn-supply = <&bl_vddneg_5p5>;
 		reset-gpios = <&tlmm 75 GPIO_ACTIVE_LOW>;
 		backlight = <&backlight>;
 		pinctrl-0 = <&sde_dsi_active &sde_te_active_sleep>;
