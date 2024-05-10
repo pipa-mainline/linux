@@ -312,17 +312,23 @@ static int nt36532_prepare(struct drm_panel *panel)
 	struct device *dev = &dsi->dev;
 	int ret;
 dev_notice(dev, "prepare\n");
-//	ret = regulator_bulk_enable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
+	ret = regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
+	if (ret < 0) {
+		dev_err(dev, "Failed to disable regulators: %d\n", ret);
+		return ret;
+	}
+
+	ret = regulator_bulk_enable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
 	if (ret < 0) {
 		dev_err(dev, "Failed to enable regulators: %d\n", ret);
 		return ret;
 	}
 
-//	nt36532_reset(ctx);
+	nt36532_reset(ctx);
 
 	msleep(120);
 
-//	ret = nt36532_on(ctx);
+	ret = nt36532_on(ctx);
 	if (ret < 0) {
 		dev_err(dev, "Failed to initialize panel: %d\n", ret);
 		goto fail;
@@ -502,15 +508,15 @@ static int nt36532_probe(struct mipi_dsi_device *dsi)
 	ctx->supplies[0].supply = "vddio";
 	ctx->supplies[1].supply = "dvddbuck";
 	ctx->supplies[2].supply = "dvddldo";
-//	ret = devm_regulator_bulk_get(dev, ARRAY_SIZE(ctx->supplies),
-//				      ctx->supplies);
+	ret = devm_regulator_bulk_get(dev, ARRAY_SIZE(ctx->supplies),
+				      ctx->supplies);
 	if (ret < 0)
 		return dev_err_probe(dev, ret, "Failed to get regulators\n");
 
-//	ctx->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
-//	if (IS_ERR(ctx->reset_gpio))
-//		return dev_err_probe(dev, PTR_ERR(ctx->reset_gpio),
-//				     "Failed to get reset-gpios\n");
+	ctx->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(ctx->reset_gpio))
+		return dev_err_probe(dev, PTR_ERR(ctx->reset_gpio),
+				     "Failed to get reset-gpios\n");
 
 	dsi_sec = of_graph_get_remote_node(dsi->dev.of_node, 1, -1);
 
@@ -546,10 +552,10 @@ static int nt36532_probe(struct mipi_dsi_device *dsi)
 		       DRM_MODE_CONNECTOR_DSI);
 	ctx->panel.prepare_prev_first = true;
 
-//	ctx->panel.backlight = nt36532_create_backlight(dsi);
-//	if (IS_ERR(ctx->panel.backlight))
-//		return dev_err_probe(dev, PTR_ERR(ctx->panel.backlight),
-//				     "Failed to create backlight\n");
+	ctx->panel.backlight = nt36532_create_backlight(dsi);
+	if (IS_ERR(ctx->panel.backlight))
+		return dev_err_probe(dev, PTR_ERR(ctx->panel.backlight),
+				     "Failed to create backlight\n");
 
 	drm_panel_add(&ctx->panel);
 
