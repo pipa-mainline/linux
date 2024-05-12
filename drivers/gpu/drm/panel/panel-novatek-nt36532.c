@@ -35,35 +35,25 @@ to_nt36532(struct drm_panel *panel)
 
 static void nt36532_reset(struct nt36532 *ctx)
 {
-	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
-	usleep_range(12000, 13000);
 	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
-	usleep_range(12000, 13000);
+	usleep_range(10000, 11000);
 	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
+	usleep_range(3000, 4000);
+	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
+	usleep_range(3000, 4000);
+	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
+	usleep_range(15000, 16000);
 }
 
 static int nt36532_on(struct nt36532 *ctx)
 {
-	struct mipi_dsi_device *dsi= ctx->dsi[0];
+	struct mipi_dsi_device *dsi= ctx->dsi[1];
 	struct device *dev = &dsi->dev;
 	int ret;
 
 	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
-	if (ctx->dsi[1])
-		ctx->dsi[1]->mode_flags |= MIPI_DSI_MODE_LPM;
-
-	ret = mipi_dsi_dcs_exit_sleep_mode(dsi);
-	if (ret < 0) {
-		dev_err(dev, "Failed to exit sleep mode: %d\n", ret);
-		return ret;
-	}
-	usleep_range(15000, 16000);
-
-	ret = mipi_dsi_compression_mode(dsi, true);
-	if (ret < 0) {
-		dev_err(dev, "Failed to set compression mode: %d\n", ret);
-		return ret;
-	}
+	if (ctx->dsi[0])
+		ctx->dsi[0]->mode_flags |= MIPI_DSI_MODE_LPM;
 
 	mipi_dsi_dcs_write_seq(dsi, 0xff, 0x27);
 	mipi_dsi_dcs_write_seq(dsi, 0xfb, 0x01);
@@ -72,35 +62,42 @@ static int nt36532_on(struct nt36532 *ctx)
 	mipi_dsi_dcs_write_seq(dsi, 0xd2, 0x38);
 	mipi_dsi_dcs_write_seq(dsi, 0xde, 0x43);
 	mipi_dsi_dcs_write_seq(dsi, 0xdf, 0x02);
+
 	mipi_dsi_dcs_write_seq(dsi, 0xff, 0x23);
 	mipi_dsi_dcs_write_seq(dsi, 0xfb, 0x01);
-	mipi_dsi_dcs_write_seq(dsi, 0x00, 0x80);
-	mipi_dsi_dcs_write_seq(dsi, 0x01, 0x84);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_NOP, 0x80);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_SOFT_RESET, 0x84);
 	mipi_dsi_dcs_write_seq(dsi, 0x05, 0x2d);
 	mipi_dsi_dcs_write_seq(dsi, 0x06, 0x00);
 	mipi_dsi_dcs_write_seq(dsi, 0x11, 0x03);
 	mipi_dsi_dcs_write_seq(dsi, 0x12, 0x2a);
 	mipi_dsi_dcs_write_seq(dsi, 0x15, 0xd0);
 	mipi_dsi_dcs_write_seq(dsi, 0x16, 0x16);
-	mipi_dsi_dcs_write_seq(dsi, 0x29, 0x0a);
-	mipi_dsi_dcs_write_seq(dsi, 0x30, 0xff);
-	mipi_dsi_dcs_write_seq(dsi, 0x31, 0xfe);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_SET_DISPLAY_ON, 0x0a);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_SET_PARTIAL_ROWS, 0xff);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_SET_PARTIAL_COLUMNS, 0xfe);
 	mipi_dsi_dcs_write_seq(dsi, 0x32, 0xfd);
-	mipi_dsi_dcs_write_seq(dsi, 0x33, 0xfb);
-	mipi_dsi_dcs_write_seq(dsi, 0x34, 0xf8);
-	mipi_dsi_dcs_write_seq(dsi, 0x35, 0xf5);
-	mipi_dsi_dcs_write_seq(dsi, 0x36, 0xf3);
-	mipi_dsi_dcs_write_seq(dsi, 0x37, 0xf2);
-	mipi_dsi_dcs_write_seq(dsi, 0x38, 0xf2);
-	mipi_dsi_dcs_write_seq(dsi, 0x39, 0xf2);
-	mipi_dsi_dcs_write_seq(dsi, 0x3a, 0xef);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_SET_SCROLL_AREA, 0xfb);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_SET_TEAR_OFF, 0xf8);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_SET_TEAR_ON, 0xf5);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_SET_ADDRESS_MODE, 0xf3);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_SET_SCROLL_START, 0xf2);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_EXIT_IDLE_MODE, 0xf2);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_ENTER_IDLE_MODE, 0xf2);
+
+	ret = mipi_dsi_dcs_set_pixel_format(dsi, 0xef);
+	if (ret < 0) {
+		dev_err(dev, "Failed to set pixel format: %d\n", ret);
+		return ret;
+	}
+
 	mipi_dsi_dcs_write_seq(dsi, 0x3b, 0xec);
-	mipi_dsi_dcs_write_seq(dsi, 0x3d, 0xe9);
-	mipi_dsi_dcs_write_seq(dsi, 0x3f, 0xe5);
-	mipi_dsi_dcs_write_seq(dsi, 0x40, 0xe5);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_SET_3D_CONTROL, 0xe9);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_GET_3D_CONTROL, 0xe5);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_SET_VSYNC_TIMING, 0xe5);
 	mipi_dsi_dcs_write_seq(dsi, 0x41, 0xe5);
-	mipi_dsi_dcs_write_seq(dsi, 0x2a, 0x13);
-	mipi_dsi_dcs_write_seq(dsi, 0x45, 0xff);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_SET_COLUMN_ADDRESS, 0x13);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_GET_SCANLINE, 0xff);
 	mipi_dsi_dcs_write_seq(dsi, 0x46, 0xf4);
 	mipi_dsi_dcs_write_seq(dsi, 0x47, 0xe7);
 	mipi_dsi_dcs_write_seq(dsi, 0x48, 0xda);
@@ -112,11 +109,11 @@ static int nt36532_on(struct nt36532 *ctx)
 	mipi_dsi_dcs_write_seq(dsi, 0x4e, 0xb1);
 	mipi_dsi_dcs_write_seq(dsi, 0x4f, 0x95);
 	mipi_dsi_dcs_write_seq(dsi, 0x50, 0x79);
-	mipi_dsi_dcs_write_seq(dsi, 0x51, 0x5c);
-	mipi_dsi_dcs_write_seq(dsi, 0x52, 0x58);
-	mipi_dsi_dcs_write_seq(dsi, 0x53, 0x58);
-	mipi_dsi_dcs_write_seq(dsi, 0x54, 0x58);
-	mipi_dsi_dcs_write_seq(dsi, 0x2b, 0x0e);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS, 0x5c);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_GET_DISPLAY_BRIGHTNESS, 0x58);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_WRITE_CONTROL_DISPLAY, 0x58);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_GET_CONTROL_DISPLAY, 0x58);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_SET_PAGE_ADDRESS, 0x0e);
 	mipi_dsi_dcs_write_seq(dsi, 0x58, 0xff);
 	mipi_dsi_dcs_write_seq(dsi, 0x59, 0xfb);
 	mipi_dsi_dcs_write_seq(dsi, 0x5a, 0xf7);
@@ -133,10 +130,12 @@ static int nt36532_on(struct nt36532 *ctx)
 	mipi_dsi_dcs_write_seq(dsi, 0x65, 0xa8);
 	mipi_dsi_dcs_write_seq(dsi, 0x66, 0xa8);
 	mipi_dsi_dcs_write_seq(dsi, 0x67, 0xa8);
+
 	mipi_dsi_dcs_write_seq(dsi, 0xff, 0x20);
 	mipi_dsi_dcs_write_seq(dsi, 0xfb, 0x01);
 	mipi_dsi_dcs_write_seq(dsi, 0x17, 0x02);
 	mipi_dsi_dcs_write_seq(dsi, 0x32, 0x72);
+
 	mipi_dsi_dcs_write_seq(dsi, 0xff, 0x22);
 	mipi_dsi_dcs_write_seq(dsi, 0xfb, 0x01);
 	mipi_dsi_dcs_write_seq(dsi, 0x9f, 0x57);
@@ -154,26 +153,30 @@ static int nt36532_on(struct nt36532 *ctx)
 	mipi_dsi_dcs_write_seq(dsi, 0xbf, 0x6e);
 	mipi_dsi_dcs_write_seq(dsi, 0xc1, 0x6e);
 	mipi_dsi_dcs_write_seq(dsi, 0xc3, 0x6e);
+
 	mipi_dsi_dcs_write_seq(dsi, 0xff, 0x23);
 	mipi_dsi_dcs_write_seq(dsi, 0xfb, 0x01);
 	mipi_dsi_dcs_write_seq(dsi, 0xba, 0x7a, 0x5d);
 	mipi_dsi_dcs_write_seq(dsi, 0xbb, 0x77, 0x60);
+
 	mipi_dsi_dcs_write_seq(dsi, 0xff, 0x24);
 	mipi_dsi_dcs_write_seq(dsi, 0xfb, 0x01);
 	mipi_dsi_dcs_write_seq(dsi, 0x1c, 0x80);
 	mipi_dsi_dcs_write_seq(dsi, 0x92, 0x45, 0x00, 0xc0);
 	mipi_dsi_dcs_write_seq(dsi, 0xdb, 0x33);
+
 	mipi_dsi_dcs_write_seq(dsi, 0xff, 0x25);
 	mipi_dsi_dcs_write_seq(dsi, 0xfb, 0x01);
-	mipi_dsi_dcs_write_seq(dsi, 0x05, 0x00);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_GET_ERROR_COUNT_ON_DSI, 0x00);
 	mipi_dsi_dcs_write_seq(dsi, 0x23, 0x09);
 	mipi_dsi_dcs_write_seq(dsi, 0x24, 0x16);
-	mipi_dsi_dcs_write_seq(dsi, 0x2a, 0x09);
-	mipi_dsi_dcs_write_seq(dsi, 0x2b, 0x16);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_SET_COLUMN_ADDRESS, 0x09);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_SET_PAGE_ADDRESS, 0x16);
 	mipi_dsi_dcs_write_seq(dsi, 0x42, 0x0b);
 	mipi_dsi_dcs_write_seq(dsi, 0xc5, 0x1e);
 	mipi_dsi_dcs_write_seq(dsi, 0xf6, 0x02);
 	mipi_dsi_dcs_write_seq(dsi, 0xf7, 0x48);
+
 	mipi_dsi_dcs_write_seq(dsi, 0xff, 0x26);
 	mipi_dsi_dcs_write_seq(dsi, 0xfb, 0x01);
 	mipi_dsi_dcs_write_seq(dsi, 0x04, 0x75);
@@ -195,7 +198,7 @@ static int nt36532_on(struct nt36532 *ctx)
 	mipi_dsi_dcs_write_seq(dsi, 0x37, 0x78);
 	mipi_dsi_dcs_write_seq(dsi, 0x38, 0x06);
 	mipi_dsi_dcs_write_seq(dsi, 0x3a, 0x45);
-	mipi_dsi_dcs_write_seq(dsi, 0x40, 0x47);
+	mipi_dsi_dcs_write_seq(dsi, MIPI_DCS_SET_VSYNC_TIMING, 0x47);
 	mipi_dsi_dcs_write_seq(dsi, 0x41, 0x47);
 	mipi_dsi_dcs_write_seq(dsi, 0x42, 0x47);
 	mipi_dsi_dcs_write_seq(dsi, 0x45, 0x0b);
@@ -211,6 +214,7 @@ static int nt36532_on(struct nt36532 *ctx)
 	mipi_dsi_dcs_write_seq(dsi, 0x9c, 0xd4, 0xd4, 0xd4, 0xd4);
 	mipi_dsi_dcs_write_seq(dsi, 0x9d, 0x26, 0x26, 0x26, 0x26);
 	mipi_dsi_dcs_write_seq(dsi, 0x9e, 0xac, 0xac, 0xac, 0xac);
+
 	mipi_dsi_dcs_write_seq(dsi, 0xff, 0x27);
 	mipi_dsi_dcs_write_seq(dsi, 0xfb, 0x01);
 	mipi_dsi_dcs_write_seq(dsi, 0x01, 0xc1);
@@ -232,6 +236,7 @@ static int nt36532_on(struct nt36532 *ctx)
 	mipi_dsi_dcs_write_seq(dsi, 0x85, 0x36, 0x00);
 	mipi_dsi_dcs_write_seq(dsi, 0x86, 0xcb, 0xc0);
 	mipi_dsi_dcs_write_seq(dsi, 0x88, 0x92, 0x00);
+
 	mipi_dsi_dcs_write_seq(dsi, 0xff, 0x2a);
 	mipi_dsi_dcs_write_seq(dsi, 0xfb, 0x01);
 	mipi_dsi_dcs_write_seq(dsi, 0x14, 0x09);
@@ -240,6 +245,7 @@ static int nt36532_on(struct nt36532 *ctx)
 	mipi_dsi_dcs_write_seq(dsi, 0xa3, 0x00);
 	mipi_dsi_dcs_write_seq(dsi, 0xc5, 0x09);
 	mipi_dsi_dcs_write_seq(dsi, 0xc6, 0x16);
+
 	mipi_dsi_dcs_write_seq(dsi, 0xff, 0x10);
 	mipi_dsi_dcs_write_seq(dsi, 0xfb, 0x01);
 	mipi_dsi_dcs_write_seq(dsi, 0xb3, 0x40);
@@ -253,14 +259,24 @@ static int nt36532_on(struct nt36532 *ctx)
 	mipi_dsi_dcs_write_seq(dsi, 0x3b, 0x03, 0xd8, 0x1a, 0x0a, 0x0a, 0x00);
 	mipi_dsi_dcs_write_seq(dsi, 0x51, 0x0f, 0xff);
 	mipi_dsi_dcs_write_seq(dsi, 0x53, 0x24);
-	mipi_dsi_dcs_write_seq(dsi, 0x11);
+	ret = mipi_dsi_dcs_exit_sleep_mode(dsi);
+	if (ret < 0) {
+		dev_err(dev, "Failed to exit sleep mode: %d\n", ret);
+		return ret;
+	}
 	msleep(70);
-	mipi_dsi_dcs_write_seq(dsi, 0x29);
+
+	ret = mipi_dsi_dcs_set_display_on(dsi);
+	if (ret < 0) {
+		dev_err(dev, "Failed to set display on: %d\n", ret);
+		return ret;
+	}
+	msleep(40);
+
+	//mipi_dsi_dcs_write_seq(dsi, 122);
 
 
-
-
-	ret = mipi_dsi_dcs_set_tear_on(dsi, MIPI_DSI_DCS_TEAR_MODE_VBLANK);
+/*	ret = mipi_dsi_dcs_set_tear_on(dsi, MIPI_DSI_DCS_TEAR_MODE_VBLANK);
 	if (ret < 0) {
 		dev_err(dev, "Failed to set tear on: %d\n", ret);
 		return ret;
@@ -271,7 +287,7 @@ static int nt36532_on(struct nt36532 *ctx)
 		dev_err(dev, "Failed to set tear scanline: %d\n", ret);
 		return ret;
 	}
-
+*/
 
 	msleep(110);
 
@@ -310,12 +326,13 @@ static int nt36532_prepare(struct drm_panel *panel)
 	struct nt36532 *ctx = to_nt36532(panel);
 	struct mipi_dsi_device *dsi = ctx->dsi[0];
 	struct device *dev = &dsi->dev;
+	struct drm_dsc_picture_parameter_set pps;
 	int ret;
 dev_notice(dev, "prepare\n");
-	ret = regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
+//	ret = regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
 	if (ret < 0) {
 		dev_err(dev, "Failed to disable regulators: %d\n", ret);
-		return ret;
+//		return ret;
 	}
 
 	ret = regulator_bulk_enable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
@@ -324,7 +341,7 @@ dev_notice(dev, "prepare\n");
 		return ret;
 	}
 
-	nt36532_reset(ctx);
+//	nt36532_reset(ctx);
 
 	msleep(120);
 
@@ -333,6 +350,21 @@ dev_notice(dev, "prepare\n");
 		dev_err(dev, "Failed to initialize panel: %d\n", ret);
 		goto fail;
 	}
+
+	drm_dsc_pps_payload_pack(&pps, &ctx->dsc);
+
+	ret = mipi_dsi_picture_parameter_set(dsi, &pps);
+	if (ret < 0) {
+		dev_err(panel->dev, "failed to transmit PPS: %d\n", ret);
+		return ret;
+	}
+
+	ret = mipi_dsi_compression_mode(dsi, true);
+	if (ret < 0) {
+		dev_err(dev, "failed to enable compression mode: %d\n", ret);
+		return ret;
+	}
+
 
 	msleep(120);
 
@@ -513,10 +545,10 @@ static int nt36532_probe(struct mipi_dsi_device *dsi)
 	if (ret < 0)
 		return dev_err_probe(dev, ret, "Failed to get regulators\n");
 
-	ctx->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
-	if (IS_ERR(ctx->reset_gpio))
-		return dev_err_probe(dev, PTR_ERR(ctx->reset_gpio),
-				     "Failed to get reset-gpios\n");
+//	ctx->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
+//	if (IS_ERR(ctx->reset_gpio))
+//		return dev_err_probe(dev, PTR_ERR(ctx->reset_gpio),
+//				     "Failed to get reset-gpios\n");
 
 	dsi_sec = of_graph_get_remote_node(dsi->dev.of_node, 1, -1);
 

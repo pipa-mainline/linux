@@ -445,8 +445,7 @@ static void dpu_encoder_phys_vid_enable(struct dpu_encoder_phys *phys_enc)
 	 * flush bit for the slave intf, since both intfs use same ctl
 	 * and HW will only flush the master.
 	 */
-	if (dpu_encoder_phys_vid_needs_single_flush(phys_enc) &&
-		!dpu_encoder_phys_vid_is_master(phys_enc))
+	if (dpu_encoder_phys_vid_needs_single_flush(phys_enc))
 		goto skip_flush;
 
 	ctl->ops.update_pending_flush_intf(ctl, phys_enc->hw_intf->idx);

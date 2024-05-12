@@ -575,7 +575,7 @@
 		dvddldo-supply = <&display_panel_dvdd_ldo>;
 		enp-supply = <&bl_vddpos_5p5>;
 		enn-supply = <&bl_vddneg_5p5>;
-		reset-gpios = <&tlmm 75 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&tlmm 75 GPIO_ACTIVE_HIGH>;
 		backlight = <&backlight>;
 		pinctrl-0 = <&sde_dsi_active &sde_te_active_sleep>;
 		pinctrl-1 = <&sde_dsi_sleep &sde_te_active_sleep>;

@@ -544,9 +544,12 @@ static void dpu_hw_ctl_intf_cfg_v1(struct dpu_hw_ctl *ctx,
 		struct dpu_hw_intf_cfg *cfg)
 {
 	struct dpu_hw_blk_reg_map *c = &ctx->hw;
-	u32 intf_active = 0;
-	u32 wb_active = 0;
 	u32 mode_sel = 0;
+	u32 cdm_active;
+	u32 intf_active;
+	u32 wb_active;
+	u32 dsc_active;
+	u32 merge_3d_active;
 
 	/* CTL_TOP[31:28] carries group_id to collate CTL paths
 	 * per VM. Explicitly disable it until VM support is
@@ -558,8 +561,14 @@ static void dpu_hw_ctl_intf_cfg_v1(struct dpu_hw_ctl *ctx,
 	if (cfg->intf_mode_sel == DPU_CTL_MODE_SEL_CMD)
 		mode_sel |= BIT(17);
 
+	cdm_active = DPU_REG_READ(c, CTL_CDM_ACTIVE);
 	intf_active = DPU_REG_READ(c, CTL_INTF_ACTIVE);
 	wb_active = DPU_REG_READ(c, CTL_WB_ACTIVE);
+	dsc_active = DPU_REG_READ(c, CTL_DSC_ACTIVE);
+	merge_3d_active = DPU_REG_READ(c, CTL_MERGE_3D_ACTIVE);
+
+	if (cfg->cdm)
+		cdm_active |= cfg->cdm;
 
 	if (cfg->intf)
 		intf_active |= BIT(cfg->intf - INTF_0);
@@ -567,20 +576,28 @@ static void dpu_hw_ctl_intf_cfg_v1(struct dpu_hw_ctl *ctx,
 	if (cfg->wb)
 		wb_active |= BIT(cfg->wb - WB_0);
 
-	DPU_REG_WRITE(c, CTL_TOP, mode_sel);
-	DPU_REG_WRITE(c, CTL_INTF_ACTIVE, intf_active);
-	DPU_REG_WRITE(c, CTL_WB_ACTIVE, wb_active);
+	if (cfg->dsc)
+		dsc_active |= cfg->dsc;
 
 	if (cfg->merge_3d)
-		DPU_REG_WRITE(c, CTL_MERGE_3D_ACTIVE,
-			      BIT(cfg->merge_3d - MERGE_3D_0));
+		merge_3d_active |= BIT(cfg->merge_3d - MERGE_3D_0);
 
-	if (cfg->dsc)
-		DPU_REG_WRITE(c, CTL_DSC_ACTIVE, cfg->dsc);
+	DPU_REG_WRITE(c, CTL_TOP, mode_sel);
+	DPU_REG_WRITE(c, CTL_CDM_ACTIVE, cdm_active);
+	DPU_REG_WRITE(c, CTL_INTF_ACTIVE, intf_active);
+	DPU_REG_WRITE(c, CTL_WB_ACTIVE, wb_active);
+	DPU_REG_WRITE(c, CTL_DSC_ACTIVE, dsc_active);
+	DPU_REG_WRITE(c, CTL_MERGE_3D_ACTIVE, merge_3d_active);
 
-	if (cfg->cdm)
-		DPU_REG_WRITE(c, CTL_CDM_ACTIVE, cfg->cdm);
+	if (cfg->intf_master)
+		DPU_REG_WRITE(c, CTL_INTF_MASTER, BIT(cfg->intf_master - INTF_0));
+
+	if (cfg->intf_master)
+		DPU_DEBUG_DRIVER("ACTIVE: intf:%#x merge_3d:%#x dsc:%#x master_intf:%d\n", intf_active, merge_3d_active, dsc_active, cfg->intf_master - INTF_0);
+	else
+		DPU_DEBUG_DRIVER("ACTIVE: intf:%#x merge_3d:%#x dsc:%#x\n", intf_active, merge_3d_active, dsc_active);
 }
+
 
 static void dpu_hw_ctl_intf_cfg(struct dpu_hw_ctl *ctx,
 		struct dpu_hw_intf_cfg *cfg)
