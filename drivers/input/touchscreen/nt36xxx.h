@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2010 - 2017 Novatek, Inc.
  * Copyright (C) 2020 AngeloGioacchino Del Regno <kholk11@gmail.com>
- * Copyright (C) 2023 99degree <www.github.com/99degree>
+ * Copyright (C) 2023-2024 George Chan <gchan9527@gmail.com>
  */
 
 #ifndef NT36XXX_H

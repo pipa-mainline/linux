@@ -5,7 +5,7 @@
  * Copyright (C) 2010 - 2018 Novatek, Inc.
  * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright (C) 2020 AngeloGioacchino Del Regno <kholk11@gmail.com>
- * Copyright (C) 2023 99degree <www.github.com/99degree>
+ * Copyright (C) 2023-2024 George Chan <gchan9527@gmail.com>
  *
  * Based on nt36xxx.c i2c driver from AngeloGioacchino Del Regno
  */
@@ -573,7 +573,6 @@ static int32_t nvt_bin_header_parser(struct device *dev, int hw_crc, const u8 *f
 		return -ENOMEM;
 	}
 
-
 	for (list = 0; list < partition; list++) {
 		/*
 		 * [1] parsing ILM & DLM header info
@@ -800,17 +799,11 @@ static int _nt36xxx_boot_prepare_firmware(struct nt36xxx_ts *ts) {
 		return ret;
 	}
 
-	/*
-	 * dup mem again for devm remove
-	 * thus there is no more allocate bunch of mem incase of issue
-	 * happened between fw load and parsing error
-	 */
-	data2 = devm_kmemdup(ts->dev, ts->fw_entry.data, ts->fw_entry.size, GFP_KERNEL | GFP_DMA);
-	ts->fw_entry.data = data2;
-
 	ts->status |= NT36XXX_STATUS_PREPARE_FIRMWARE;
 
-	kfree(data);
+	ret = devm_add_action_or_reset(dev, nt36xxx_release_memory, ts);
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -899,7 +892,7 @@ check_fw:
 	dev_info(ts->dev, "Touch IC fw loaded ok");
 
 	ts->status |= NT36XXX_STATUS_DOWNLOAD_COMPLETE;
-	
+
 	return 0;
 }
 
@@ -954,6 +947,13 @@ exit:
 		//cancel_delayed_work(&ts->work);
 		schedule_delayed_work(&ts->work, 4000);
 	}
+}
+
+static void nt36xxx_release_memory(void *data)
+{
+	struct nt36xxx_ts *ts = data;
+	kfree(ts->bin_map);
+	kfree(ts->fw_entry.data);
 }
 
 static void nt36xxx_disable_regulators(void *data)
@@ -1265,4 +1265,4 @@ static struct drm_panel_follower_funcs nt36xxx_panel_follower_funcs = {
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("NT36XXX Touchscreen driver");
 MODULE_AUTHOR("AngeloGioacchino Del Regno <kholk11@gmail.com>");
-MODULE_AUTHOR("99degree <www.github.com/99degree>");
+MODULE_AUTHOR("George Chan <gchan9527@gmail.com>");

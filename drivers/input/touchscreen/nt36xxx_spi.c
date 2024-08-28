@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2020 - 2021 Goodix, Inc.
  * Copyright (C) 2023 Linaro Ltd.
- * Copyright (C) 2023 99degree <www.github.com/99degree>
+ * Copyright (C) 2023-2024 George Chan <gchan9527@gmail.com>
  *
  * Based on goodix_ts_berlin driver.
  */
@@ -215,4 +215,4 @@ module_spi_driver(nt36xxx_spi_driver);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("NT36XXX SPI Touchscreen driver");
 MODULE_AUTHOR("Neil Armstrong <neil.armstrong@linaro.org>");
-MODULE_AUTHOR("99degree <www.github.com/99degree>");
+MODULE_AUTHOR("George Chan <gchan9527@gmail.com>");
