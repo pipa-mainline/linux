@@ -8,7 +8,7 @@
  *
  * Based on goodix_ts_berlin driver.
  */
-#include <asm/unaligned.h>
+#include <linux/input.h>
 #include <linux/input/touchscreen.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -16,7 +16,7 @@
 #include <linux/of_device.h>
 #include <linux/regmap.h>
 #include <linux/spi/spi.h>
-#include <linux/input.h>
+#include <linux/unaligned.h>
 
 #include "nt36xxx.h"
 

@@ -10,24 +10,23 @@
  * Based on nt36xxx.c i2c driver from AngeloGioacchino Del Regno
  */
 
-#include <asm/byteorder.h>
-#include <asm/unaligned.h>
 #include <linux/delay.h>
+#include <linux/device.h>
+#include <linux/devm-helpers.h>
 #include <linux/firmware.h>
 #include <linux/gpio/consumer.h>
 #include <linux/input/mt.h>
 #include <linux/input/touchscreen.h>
 #include <linux/interrupt.h>
+#include <linux/irqnr.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/printk.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
-#include <linux/device.h>
-#include <linux/devm-helpers.h>
+#include <linux/unaligned.h>
 #include <drm/drm_panel.h>
-#include <linux/irqnr.h>
 
 #include "nt36xxx.h"
 
