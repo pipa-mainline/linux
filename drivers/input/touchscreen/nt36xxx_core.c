@@ -216,7 +216,135 @@ const u32 nt36675_memory_maps[] = {
 	[MMAP_BLD_ILM_DLM_CRC_ADDR] = 0x3F133,
 	[MMAP_DMA_CRC_FLAG_ADDR] = 0x3F134,
 
-	/* below are specified by dts), so it might change by project-based */
+	/* below are specified by dts, so it might change by project-based */
+	[MMAP_SPI_RD_FAST_ADDR] = 0x03F310,
+	[MMAP_SWRST_N8_ADDR] = 0x03F0FE,
+
+	[MMAP_ENG_RST_ADDR] = 0x7FFF80,
+	[MMAP_MAGIC_NUMBER_0X1F64E_ADDR] = 0x1F64E,
+
+	[MMAP_TOP_ADDR] = 0xffffff,
+};
+
+const u32 nt36672a_memory_maps[] = {
+	[MMAP_EVENT_BUF_ADDR] = 0x21C00,
+	[MMAP_RAW_PIPE0_ADDR] = 0x20000,
+	[MMAP_RAW_PIPE1_ADDR] = 0x23000,
+	[MMAP_BASELINE_ADDR] = 0x20BFC,
+	[MMAP_BASELINE_BTN_ADDR] = 0x23BFC,
+	[MMAP_DIFF_PIPE0_ADDR] = 0x206DC,
+	[MMAP_DIFF_PIPE1_ADDR] = 0x236DC,
+	[MMAP_RAW_BTN_PIPE0_ADDR] = 0x20510,
+	[MMAP_RAW_BTN_PIPE1_ADDR] = 0x23510,
+	[MMAP_DIFF_BTN_PIPE0_ADDR] = 0x20BF0,
+	[MMAP_DIFF_BTN_PIPE1_ADDR] = 0x23BF0,
+	[MMAP_READ_FLASH_CHECKSUM_ADDR] = 0x24000,
+	[MMAP_RW_FLASH_DATA_ADDR] = 0x24002,
+	/* Phase 2 Host Download */
+	[MMAP_BOOT_RDY_ADDR] = 0x3F10D,
+	/* BLD CRC */
+	[MMAP_BLD_LENGTH_ADDR] = 0x3F10E,    //0x3F10E ~ 0x3F10F     (2 bytes)
+	[MMAP_ILM_LENGTH_ADDR] = 0x3F118,    //0x3F118 ~ 0x3F119     (2 bytes)
+	[MMAP_DLM_LENGTH_ADDR] = 0x3F130,    //0x3F130 ~ 0x3F131     (2 bytes)
+	[MMAP_BLD_DES_ADDR] = 0x3F114,    //0x3F114 ~ 0x3F116     (3 bytes)
+	[MMAP_ILM_DES_ADDR] = 0x3F128,    //0x3F128 ~ 0x3F12A     (3 bytes)
+	[MMAP_DLM_DES_ADDR] = 0x3F12C,    //0x3F12C ~ 0x3F12E     (3 bytes)
+	[MMAP_G_ILM_CHECKSUM_ADDR] = 0x3F100,    //0x3F100 ~ 0x3F103     (4 bytes)
+	[MMAP_G_DLM_CHECKSUM_ADDR] = 0x3F104,    //0x3F104 ~ 0x3F107     (4 bytes)
+	[MMAP_R_ILM_CHECKSUM_ADDR] = 0x3F120,    //0x3F120 ~ 0x3F123 (4 bytes)
+	[MMAP_R_DLM_CHECKSUM_ADDR] = 0x3F124,    //0x3F124 ~ 0x3F127 (4 bytes)
+	[MMAP_BLD_CRC_EN_ADDR] = 0x3F30E,
+	[MMAP_DMA_CRC_EN_ADDR] = 0x3F132,
+	[MMAP_BLD_ILM_DLM_CRC_ADDR] = 0x3F133,
+	[MMAP_DMA_CRC_FLAG_ADDR] = 0x3F134,
+
+	/* below are specified by dts, so it might change by project-based */
+	[MMAP_SPI_RD_FAST_ADDR] = 0x03F310,
+	[MMAP_SWRST_N8_ADDR] = 0x03F0FE,
+
+	[MMAP_ENG_RST_ADDR] = 0x7FFF80,
+	[MMAP_MAGIC_NUMBER_0X1F64E_ADDR] = 0x1F64E,
+
+	[MMAP_TOP_ADDR] = 0xffffff,
+};
+
+const u32 nt36676f_memory_maps[] = {
+	[MMAP_EVENT_BUF_ADDR] = 0x11A00,
+	[MMAP_RAW_PIPE0_ADDR] = 0x10000,
+	[MMAP_RAW_PIPE1_ADDR] = 0x12000,
+	[MMAP_BASELINE_ADDR] = 0x10B08,
+	[MMAP_BASELINE_BTN_ADDR] = 0x12B08,
+	[MMAP_DIFF_PIPE0_ADDR] = 0x1064C,
+	[MMAP_DIFF_PIPE1_ADDR] = 0x1264C,
+	[MMAP_RAW_BTN_PIPE0_ADDR] = 0x10634,
+	[MMAP_RAW_BTN_PIPE1_ADDR] = 0x12634,
+	[MMAP_DIFF_BTN_PIPE0_ADDR] = 0x10AFC,
+	[MMAP_DIFF_BTN_PIPE1_ADDR] = 0x12AFC,
+	[MMAP_READ_FLASH_CHECKSUM_ADDR] = 0x14000,
+	[MMAP_RW_FLASH_DATA_ADDR] = 0x14002,
+
+	/* below are specified by dts, so it might change by project-based */
+	[MMAP_SPI_RD_FAST_ADDR] = 0x03F310,
+	[MMAP_SWRST_N8_ADDR] = 0x03F0FE,
+
+	[MMAP_ENG_RST_ADDR] = 0x7FFF80,
+	[MMAP_MAGIC_NUMBER_0X1F64E_ADDR] = 0x1F64E,
+
+	[MMAP_TOP_ADDR] = 0xffffff,
+};
+
+const u32 nt36772_memory_maps[] = {
+	[MMAP_EVENT_BUF_ADDR] = 0x11E00,
+	[MMAP_RAW_PIPE0_ADDR] = 0x10000,
+	[MMAP_RAW_PIPE1_ADDR] = 0x12000,
+	[MMAP_BASELINE_ADDR] = 0x10E70,
+	[MMAP_BASELINE_BTN_ADDR] = 0x12E70,
+	[MMAP_DIFF_PIPE0_ADDR] = 0x10830,
+	[MMAP_DIFF_PIPE1_ADDR] = 0x12830,
+	[MMAP_RAW_BTN_PIPE0_ADDR] = 0x10E60,
+	[MMAP_RAW_BTN_PIPE1_ADDR] = 0x12E60,
+	[MMAP_DIFF_BTN_PIPE0_ADDR] = 0x10E68,
+	[MMAP_DIFF_BTN_PIPE1_ADDR] = 0x12E68,
+	[MMAP_READ_FLASH_CHECKSUM_ADDR] = 0x14000,
+	[MMAP_RW_FLASH_DATA_ADDR] = 0x14002,
+	/* Phase 2 Host Download */
+	[MMAP_BOOT_RDY_ADDR] = 0x1F141,
+	[MMAP_POR_CD_ADDR] = 0x1F61C,
+	/* BLD CRC */
+	[MMAP_R_ILM_CHECKSUM_ADDR] = 0x1BF00,
+
+	/* below are specified by dts, so it might change by project-based */
+	[MMAP_SPI_RD_FAST_ADDR] = 0x03F310,
+	[MMAP_SWRST_N8_ADDR] = 0x03F0FE,
+
+	[MMAP_ENG_RST_ADDR] = 0x7FFF80,
+	[MMAP_MAGIC_NUMBER_0X1F64E_ADDR] = 0x1F64E,
+
+	[MMAP_TOP_ADDR] = 0xffffff,
+};
+
+const u32 nt36525_memory_maps[] = {
+	[MMAP_EVENT_BUF_ADDR] = 0x11A00,
+	[MMAP_RAW_PIPE0_ADDR] = 0x10000,
+	[MMAP_RAW_PIPE1_ADDR] = 0x12000,
+	[MMAP_BASELINE_ADDR] = 0x10B08,
+	[MMAP_BASELINE_BTN_ADDR] = 0x12B08,
+	[MMAP_DIFF_PIPE0_ADDR] = 0x1064C,
+	[MMAP_DIFF_PIPE1_ADDR] = 0x1264C,
+	[MMAP_RAW_BTN_PIPE0_ADDR] = 0x10634,
+	[MMAP_RAW_BTN_PIPE1_ADDR] = 0x12634,
+	[MMAP_DIFF_BTN_PIPE0_ADDR] = 0x10AFC,
+	[MMAP_DIFF_BTN_PIPE1_ADDR] = 0x12AFC,
+	[MMAP_READ_FLASH_CHECKSUM_ADDR] = 0x14000,
+	[MMAP_RW_FLASH_DATA_ADDR] = 0x14002,
+
+	/* Phase 2 Host Download */
+	[MMAP_BOOT_RDY_ADDR] = 0x1F141,
+	[MMAP_POR_CD_ADDR] = 0x1F61C,
+	/* BLD CRC */
+	[MMAP_R_ILM_CHECKSUM_ADDR] = 0x1BF00,
+
+	/* below are specified by dts, so it might change by project-based */
 	[MMAP_SPI_RD_FAST_ADDR] = 0x03F310,
 	[MMAP_SWRST_N8_ADDR] = 0x03F0FE,
 
@@ -1105,9 +1233,15 @@ skip_regulators:
 		return ret;
 	}
 
-        /* copy the const mmap into drvdata */
-        memcpy(ts->mmap_data, ts->data->mmap, sizeof(ts->mmap_data));
-        ts->mmap = ts->mmap_data;
+	/* this  is to check if generic compatible string is being used */
+	if (!chip_data->id) {
+		dev_err(dev, "Please use dedicated device tree compatible string instead!");
+		return -ENODEV;
+	}
+
+	/* copy the const mmap into drvdata */
+	memcpy(ts->mmap_data, ts->data->mmap, sizeof(ts->mmap_data));
+	ts->mmap = ts->mmap_data;
 
 	ret = nt36xxx_input_dev_config(ts, ts->data->id);
 	if (ret) {

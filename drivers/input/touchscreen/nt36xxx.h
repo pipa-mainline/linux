@@ -38,7 +38,7 @@
 #define NT36XXX_MAX_FW_RST_RETRY 50
 
 enum nt36xxx_chips {
-        NT36525_IC = 0x40,
+        NT36525_IC = 0x1,
         NT36672A_IC,
         NT36676F_IC,
         NT36772_IC,
@@ -135,5 +135,8 @@ int nt36xxx_probe(struct device *dev, int irq, const struct input_id *id,
 
 extern const struct dev_pm_ops nt36xxx_pm_ops;
 extern const u32 nt36675_memory_maps[];
-
+extern const u32 nt36672a_memory_maps[];
+extern const u32 nt36772_memory_maps[];
+extern const u32 nt36676f_memory_maps[];
+extern const u32 nt36525_memory_maps[];
 #endif
