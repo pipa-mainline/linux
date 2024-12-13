@@ -86,6 +86,26 @@
 		regulator-boot-on;
 	};
 
+	display_panel_dvdd_buck: display-dvdd-ldo-dvdd_buck {
+		compatible = "regulator-fixed";
+		regulator-name = "display_panel_dvdd_buck";
+		regulator-min-microvolt = <1300000>;
+		regulator-max-microvolt = <1300000>;
+		gpio = <&tlmm 36 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-boot-on;
+	};
+
+	display_panel_dvdd_ldo: display-dvdd-ldo-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "display_panel_dvdd_ldo";
+		regulator-min-microvolt = <1300000>;
+		regulator-max-microvolt = <1300000>;
+		gpio = <&tlmm 13 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-boot-on;
+	};
+
 	gpio_keys: gpio-keys {
 		compatible = "gpio-keys";
 
@@ -495,6 +515,85 @@
 	};
 };
 
+&mdss {
+	status = "okay";
+};
+
+&mdss_dsi0 {
+	vdda-supply = <&vreg_l9a_1p2>;
+	qcom,dual-dsi-mode;
+	qcom,sync-dual-dsi;
+	qcom,master-dsi;
+
+	status = "okay";
+
+	panel: panel@0 {
+		compatible = "xiaomi,pipa-tianma-nt36532", "novatek,nt36532";
+		reg = <0>;
+
+		vddio-supply = <&vreg_l14a_1p88>;
+		dvddbuck-supply = <&display_panel_dvdd_buck>;
+		dvddldo-supply = <&display_panel_dvdd_ldo>;
+		enp-supply = <&bl_vddpos_5p5>;
+		enn-supply = <&bl_vddneg_5p5>;
+		reset-gpios = <&tlmm 75 GPIO_ACTIVE_HIGH>;
+		backlight = <&backlight>;
+		pinctrl-0 = <&sde_dsi_active &sde_te_active_sleep>;
+		pinctrl-1 = <&sde_dsi_sleep &sde_te_active_sleep>;
+		pinctrl-names = "default", "sleep";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				panel_in_0: endpoint {
+					remote-endpoint = <&mdss_dsi0_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				panel_in_1: endpoint {
+					remote-endpoint = <&mdss_dsi1_out>;
+				};
+			};
+		};
+	};
+};
+
+&mdss_dsi0_out {
+	remote-endpoint = <&panel_in_0>;
+	data-lanes = <0 1 2 3>;
+};
+
+&mdss_dsi0_phy {
+	vdds-supply = <&vreg_l5a_0p88>;
+	status = "okay";
+};
+
+&mdss_dsi1 {
+	vdda-supply = <&vreg_l9a_1p2>;
+	qcom,dual-dsi-mode;
+	qcom,sync-dual-dsi;
+	/* DSI1 is slave, so use DSI0 clocks */
+	assigned-clock-parents = <&mdss_dsi0_phy 0>, <&mdss_dsi0_phy 1>;
+	status = "okay";
+};
+
+&mdss_dsi1_out {
+	remote-endpoint = <&panel_in_1>;
+	data-lanes = <0 1 2 3>;
+};
+
+&mdss_dsi1_phy {
+	vdds-supply = <&vreg_l5a_0p88>;
+	status = "okay";
+};
+
 &i2c0 {
 	clock-frequency = <400000>;
 	status = "okay";
@@ -583,6 +682,31 @@
 &slpi {
 	firmware-name = "qcom/sm8250/xiaomi/pipa/slpi.mbn";
 	status = "okay";
+};
+
+&tlmm {
+	sde_dsi_active: sde_dsi_active-state {
+		pins = "gpio75";
+		function = "gpio";
+		drive-strength = <8>;
+		bias-disable;
+		output-high;
+	};
+
+	sde_dsi_sleep: sde-dsi-sleep-state {
+		pins = "gpio75";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-down;
+		output-high;
+	};
+
+	sde_te_active_sleep: sde_te_active-state {
+		pins = "gpio66";
+		function = "mdp_vsync";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
 };
 
 &usb_1 {
