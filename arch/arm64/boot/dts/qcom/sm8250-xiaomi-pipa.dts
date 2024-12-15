@@ -789,6 +789,11 @@
 	mode-recovery = <0x1>;
 };
 
+&pm8150b_fg {
+	status = "okay";
+	monitored-battery = <&battery>;
+};
+
 &pon_pwrkey {
 	status = "okay";
 };
