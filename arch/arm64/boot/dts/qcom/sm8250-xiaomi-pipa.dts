@@ -724,6 +724,36 @@
 	};
 };
 
+&qup_spi4_cs_gpio {
+	drive-strength = <6>;
+	bias-disable;
+};
+
+&qup_spi4_data_clk {
+	drive-strength = <6>;
+	bias-disable;
+};
+
+&spi4 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&qup_spi4_data_clk &qup_spi4_cs_gpio>;
+	cs-gpios = <&tlmm 11 GPIO_ACTIVE_LOW>;
+	touchscreen@0 {
+		compatible = "novatek,NVT-ts-spi";
+
+		reg = <0>; //Same as CS ID
+		status = "okay";
+
+		spi-max-frequency = <19200000>;	//4800000,9600000,15000000,19200000
+		//interrupts-extended = <&tlmm 39 0x2001>;
+		novatek,irq-gpio = <&tlmm 39 0x2001>;
+		novatek,swrst-n8-addr = <0x03F0FE>;
+
+        firmware-name = "novatek/nt36532.bin";
+    };
+
+};
 
 &pcie0 {
 	status = "okay";
