@@ -50,19 +50,13 @@
 			format = "a8r8g8b8";
 		};
 	};
-
-	battery_l: battery-l {
+	
+	battery: battery {
 		compatible = "simple-battery";
-		voltage-min-design-microvolt = <3870000>;
-		energy-full-design-microwatt-hours = <16700000>;
-		charge-full-design-microamp-hours = <4420000>;
-	};
-
-	battery_r: battery-r {
-		compatible = "simple-battery";
-		voltage-min-design-microvolt = <3870000>;
-		energy-full-design-microwatt-hours = <16700000>;
-		charge-full-design-microamp-hours = <4420000>;
+		charge-full-design-microamp-hours = <8840000>;
+		energy-full-design-microwatt-hours = <34300000>;
+		voltage-min-design-microvolt = <3400000>;
+		voltage-max-design-microvolt = <4470000>;
 	};
 
 	bl_vddpos_5p5: bl-vddpos-regulator {
@@ -665,17 +659,6 @@
 	status = "okay";
 };
 
-&i2c0 {
-	clock-frequency = <400000>;
-	status = "okay";
-
-	fuel-gauge@55 {
-		compatible = "ti,bq27z561";
-		reg = <0x55>;
-		monitored-battery = <&battery_r>;
-	};
-};
-
 &i2c11 {
 	clock-frequency = <400000>;
 	status = "okay";
@@ -690,17 +673,6 @@
 		kinetic,current-ramp-delay-ms = <128>;
 		kinetic,led-enable-ramp-delay-ms = <1>;
 		kinetic,enable-lcd-bias;
-	};
-};
-
-&i2c13 {
-	clock-frequency = <400000>;
-	status = "okay";
-
-	fuel-gauge@55 {
-		compatible = "ti,bq27z561";
-		reg = <0x55>;
-		monitored-battery = <&battery_l>;
 	};
 };
 
@@ -853,6 +825,11 @@
 &pon {
 	mode-bootloader = <0x2>;
 	mode-recovery = <0x1>;
+};
+
+&pm8150b_fg {
+	status = "okay";
+	monitored-battery = <&battery>;
 };
 
 &pon_pwrkey {
