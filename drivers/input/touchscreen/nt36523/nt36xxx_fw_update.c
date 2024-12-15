@@ -890,6 +890,7 @@ void Boot_Update_Firmware(struct work_struct *work)
 	} else {
 		nvt_update_firmware(ts->fw_name);
 	}
+	disable_pen_input_device(false);
 	nvt_get_fw_info();
 	mutex_unlock(&ts->lock);
 }
