@@ -75,6 +75,7 @@ static void aw_fs_write(struct file *file, char *buf, size_t count, loff_t *pos)
 
 static int aw_cali_write_cali_re_to_file(int32_t cali_re, int channel)
 {
+	return 0;
 	struct file *fp = NULL;
 	char buf[50] = {0};
 	loff_t pos = 0;
@@ -107,6 +108,7 @@ static int aw_cali_write_cali_re_to_file(int32_t cali_re, int channel)
 
 static int aw_cali_get_read_cali_re(int32_t *cali_re, int channel)
 {
+	return 0;
 	struct file *fp = NULL;
 	/*struct inode *node;*/
 	int f_size;
