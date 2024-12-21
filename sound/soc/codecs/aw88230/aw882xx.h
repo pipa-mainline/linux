@@ -166,6 +166,8 @@ struct aw882xx {
 	struct delayed_work fw_work;
 
 	struct mutex lock;
+
+	const char *fw_name;
 };
 
 void aw882xx_kcontorl_set(struct aw882xx *aw882xx);

@@ -709,6 +709,11 @@ static int aw882xx_force_boost_8v_mode_set(struct snd_kcontrol *kcontrol,
 	struct aw_device *aw_dev = aw882xx->aw_pa;
 	uint32_t ctrl_value = 0;
 
+	if (!aw_dev->ops.aw_set_force_boost_8v) {
+		aw_dev_err(aw882xx->dev, "OPS is NULL");
+		return ret;
+	}
+
 	ctrl_value = (uint32_t)ucontrol->value.integer.value[0];
 
 	mutex_lock(&aw882xx->lock);
@@ -910,9 +915,9 @@ static void aw882xx_request_firmware(struct work_struct *work)
 	struct aw_container *aw_cfg = NULL;
 
 	aw882xx->fw_status = AW_DEV_FW_FAILED;
-	ret = request_firmware(&cont, ACF_BIN_NAME, aw882xx->dev);
+	ret = request_firmware(&cont, aw882xx->fw_name, aw882xx->dev);
 	if ((ret) || (!cont)) {
-		aw_dev_info(aw882xx->dev, "load [%s] failed!", ACF_BIN_NAME);
+		aw_dev_info(aw882xx->dev, "load [%s] failed!", aw882xx->fw_name);
 		if (aw882xx->fw_retry_cnt == AW_READ_CHIPID_RETRIES) {
 			aw882xx->fw_retry_cnt = 0;
 		} else {
@@ -920,14 +925,14 @@ static void aw882xx_request_firmware(struct work_struct *work)
 			/* sleep 1s */
 			msleep(1000);
 			aw_dev_info(aw882xx->dev, "load [%s] try [%d]!",
-						ACF_BIN_NAME, aw882xx->fw_retry_cnt);
+						aw882xx->fw_name, aw882xx->fw_retry_cnt);
 			aw882xx_request_firmware(work);
 		}
 		return;
 	}
 
 	aw_dev_info(aw882xx->dev, "load [%s] , file size: [%zu]",
-			ACF_BIN_NAME, cont ? cont->size : 0);
+			aw882xx->fw_name, cont ? cont->size : 0);
 
 	mutex_lock(&g_aw882xx_lock);
 	if (g_awinic_cfg == NULL) {
@@ -943,7 +948,7 @@ static void aw882xx_request_firmware(struct work_struct *work)
 		release_firmware(cont);
 		ret = aw882xx_dev_parse_check_acf(aw_cfg);
 		if (ret) {
-			aw_dev_err(aw882xx->dev, "Load [%s] failed ....!", ACF_BIN_NAME);
+			aw_dev_err(aw882xx->dev, "Load [%s] failed ....!", aw882xx->fw_name);
 			vfree(aw_cfg);
 			aw_cfg = NULL;
 			mutex_unlock(&g_aw882xx_lock);
@@ -953,7 +958,7 @@ static void aw882xx_request_firmware(struct work_struct *work)
 	} else {
 		aw_cfg = g_awinic_cfg;
 		release_firmware(cont);
-		aw_dev_info(aw882xx->dev, "[%s] already loaded...", ACF_BIN_NAME);
+		aw_dev_info(aw882xx->dev, "[%s] already loaded...", aw882xx->fw_name);
 	}
 	mutex_unlock(&g_aw882xx_lock);
 
@@ -1538,13 +1543,7 @@ static void aw882xx_add_widgets(struct aw882xx *aw882xx)
 
 static void aw882xx_load_fw(struct aw882xx *aw882xx)
 {
-#if defined(AW_QCOM_PLATFORM) || defined(AW_AUDIOREACH_PLATFORM)
 	aw882xx_request_firmware(&aw882xx->fw_work.work);
-#else
-	queue_delayed_work(aw882xx->work_queue,
-			&aw882xx->fw_work,
-			msecs_to_jiffies(AW882XX_LOAD_FW_DELAY_TIME));
-#endif
 }
 
 static int aw882xx_codec_probe(aw_snd_soc_codec_t *aw_codec)
@@ -1812,6 +1811,12 @@ static int aw882xx_parse_dt(struct device *dev, struct aw882xx *aw882xx,
 	} else {
 		aw_dev_info(aw882xx->dev,
 			"sync flag is %d", sync_enable);
+	}
+
+	ret = of_property_read_string(np, "firmware-name", &aw882xx->fw_name);
+	if (ret) {
+		aw_dev_info(aw882xx->dev, "Failed to get firmware-name, using default");
+		aw882xx->fw_name = ACF_BIN_NAME;
 	}
 
 	aw882xx->phase_sync = sync_enable;
@@ -2645,6 +2650,3 @@ module_exit(aw882xx_i2c_exit);
 
 MODULE_DESCRIPTION("ASoC AW882XX Smart PA Driver");
 MODULE_LICENSE("GPL v2");
-
-
-
