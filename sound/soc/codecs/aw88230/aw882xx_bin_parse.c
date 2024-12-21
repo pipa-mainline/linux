@@ -1361,7 +1361,7 @@ int aw88xx_dev_get_profile_name(struct aw_device *aw_dev, char *name, int index)
 
 	dev_profile_id = prof_info->prof_desc[index].id;
 
-	strlcpy(name, prof_info->prof_name_list[dev_profile_id],
+	strncpy(name, prof_info->prof_name_list[dev_profile_id],
 			strlen(prof_info->prof_name_list[dev_profile_id]) + 1);
 	return 0;
 }
