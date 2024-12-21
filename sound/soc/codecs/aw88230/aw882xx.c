@@ -1915,7 +1915,7 @@ static int aw882xx_interrupt_init(struct aw882xx *aw882xx)
 	int irq_flags;
 
 	if (gpio_is_valid(aw882xx->irq_gpio)) {
-		irq_flags = IRQF_TRIGGER_LOW | IRQF_ONESHOT | IRQF_SHARED;
+		irq_flags = IRQF_TRIGGER_FALLING | IRQF_ONESHOT;
 		ret = devm_request_threaded_irq(aw882xx->dev,
 					gpio_to_irq(aw882xx->irq_gpio),
 					NULL, aw882xx_irq, irq_flags,
