@@ -744,10 +744,13 @@
 	status = "okay";
 };
 
+#define SPEAKER_UPSTREAM 0
+
 &i2c1 {
 	clock-frequency = <400000>;
 	status = "okay";
 
+#if SPEAKER_UPSTREAM == 0
 	aw88230_pr: speaker-amp@36 {
 		compatible = "awinic,aw882xx_smartpa";
 
@@ -775,7 +778,9 @@
 
 		sound-channel = <1>;
 
-		#sound-dai-cells = <1>;
+		#sound-dai-cells = <0>;
+
+		firmware-name = "awinic/aw88230_2113_pipa.bin";
 	};
 
 	aw88230_sl: speaker-amp@37 {
@@ -805,14 +810,44 @@
 
 		sound-channel = <2>;
 
-		#sound-dai-cells = <1>;
+		#sound-dai-cells = <0>;
+
+		firmware-name = "awinic/aw88230_2113_pipa.bin";
 	};
+#else
+	aw88261_pr: speaker-amp@36 {
+		compatible = "awinic,aw88261";
+
+		reg = <0x36>;
+
+		#sound-dai-cells = <0>;
+
+		reset-gpios = <&tlmm 144 GPIO_ACTIVE_HIGH>;
+
+		awinic,audio-channel = <1>;
+		awinic,sync-flag;
+	};
+
+	aw88261_sl: speaker-amp@37 {
+		compatible = "awinic,aw88261";
+
+		reg = <0x37>;
+
+		#sound-dai-cells = <0>;
+
+		reset-gpios = <&tlmm 62 GPIO_ACTIVE_HIGH>;
+
+		awinic,audio-channel = <2>;
+		awinic,sync-flag;
+	};
+#endif
 };
 
 &i2c3 {
 	clock-frequency = <400000>;
 	status = "okay";
 
+#if SPEAKER_UPSTREAM == 0
 	aw88230_pl: speaker-amp@34 {
 		compatible = "awinic,aw882xx_smartpa";
 
@@ -840,7 +875,9 @@
 
 		sound-channel = <0>;
 
-		#sound-dai-cells = <1>;
+		#sound-dai-cells = <0>;
+
+		firmware-name = "awinic/aw88230_2113_pipa.bin";
 	};
 
 	aw88230_sr: speaker-amp@35 {
@@ -869,8 +906,37 @@
 
 		sound-channel = <3>;
 
-		#sound-dai-cells = <1>;
+		#sound-dai-cells = <0>;
+
+		firmware-name = "awinic/aw88230_2113_pipa.bin";
 	};
+#else
+	aw88261_pl: speaker-amp@34 {
+		compatible = "awinic,aw88261";
+
+		reg = <0x34>;
+
+		#sound-dai-cells = <0>;
+
+		reset-gpios = <&tlmm 62 GPIO_ACTIVE_HIGH>;
+
+		awinic,audio-channel = <0>;
+		awinic,sync-flag;
+	};
+
+	aw88261_sr: speaker-amp@35 {
+		compatible = "awinic,aw88261";
+
+		reg = <0x35>;
+
+		#sound-dai-cells = <0>;
+
+		reset-gpios = <&tlmm 78 GPIO_ACTIVE_HIGH>;
+
+		awinic,audio-channel = <3>;
+		awinic,sync-flag;
+	};
+#endif
 };
 
 &i2c11 {
@@ -1001,6 +1067,10 @@
 	};
 };
 
+&vamacro {
+	status = "disabled";
+};
+
 &sound {
 	compatible = "qcom,sm8250-sndcard";
 	model = "Xiaomi Pad 6";
@@ -1027,8 +1097,13 @@
 		};
 
 		codec {
-			sound-dai = <&aw88230_pl 0>, <&aw88230_pr 0>,
-					    <&aw88230_sl 0>, <&aw88230_sr 0>;
+#if SPEAKER_UPSTREAM
+			sound-dai = <&aw88261_pl>, <&aw88261_pr>,
+					    <&aw88261_sl>, <&aw88261_sr>;
+#else
+			sound-dai = <&aw88230_pl>, <&aw88230_pr>,
+					    <&aw88230_sl>, <&aw88230_sr>;
+#endif
 		};
 	};
 };
@@ -1302,7 +1377,7 @@ bq2597x_master_int_default: bq2597x-master-int-default {
 		input-enable;
 	};
 
-	aw88230_pr_int: aw88230-pl-int-state {
+	aw88230_pr_int: aw88230-pr-int-state {
 		pins = "gpio129";
 		function = "gpio";
 		drive-strength = <2>;
@@ -1310,7 +1385,7 @@ bq2597x_master_int_default: bq2597x-master-int-default {
 		input-enable;
 	};
 
-	aw88230_sl_int: aw88230-pl-int-state {
+	aw88230_sl_int: aw88230-sl-int-state {
 		pins = "gpio67";
 		function = "gpio";
 		drive-strength = <2>;
