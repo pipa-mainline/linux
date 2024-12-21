@@ -8,6 +8,8 @@
 #include <dt-bindings/arm/qcom,ids.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+#include <dt-bindings/sound/qcom,q6afe.h>
+#include <dt-bindings/sound/qcom,q6asm.h>
 #include <dt-bindings/usb/pd.h>
 #include "sm8250.dtsi"
 #include "pm8150.dtsi"
@@ -742,6 +744,135 @@
 	status = "okay";
 };
 
+&i2c1 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	aw88230_pr: speaker-amp@36 {
+		compatible = "awinic,aw882xx_smartpa";
+
+		reg = <0x36>;
+
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&aw88230_pr_int>;
+		pinctrl-1 = <&aw88230_pr_int>;
+
+		reset-gpio = <&tlmm 144 GPIO_ACTIVE_HIGH>;
+		irq-gpio = <&tlmm 129 0x2008>;
+
+		monitor-flag = <1>;
+		dc-flag = <0>;
+
+		aw-tx-topo-id = <0x1000ff00>;
+		aw-rx-topo-id = <0x1000ff01>;
+		aw-tx-port-id = <0x9021>;
+		aw-rx-port-id = <0x9020>;
+		aw-re-min = <5600>;
+		aw-re-max = <8400>;
+
+		spin-mode = "dsp_spin";
+		aw-cali-mode = "all";
+
+		sound-channel = <1>;
+
+		#sound-dai-cells = <1>;
+	};
+
+	aw88230_sl: speaker-amp@37 {
+		compatible = "awinic,aw882xx_smartpa";
+
+		reg = <0x37>;
+
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&aw88230_sl_int>;
+		pinctrl-1 = <&aw88230_sl_int>;
+
+		reset-gpio = <&tlmm 62 GPIO_ACTIVE_HIGH>;
+		irq-gpio = <&tlmm 67 0x2008>;
+
+		monitor-flag = <1>;
+		dc-flag = <0>;
+
+		aw-tx-topo-id = <0x1000ff00>;
+		aw-rx-topo-id = <0x1000ff01>;
+		aw-tx-port-id = <0x9021>;
+		aw-rx-port-id = <0x9020>;
+		aw-re-min = <5600>;
+		aw-re-max = <8400>;
+
+		spin-mode = "dsp_spin";
+		aw-cali-mode = "all";
+
+		sound-channel = <2>;
+
+		#sound-dai-cells = <1>;
+	};
+};
+
+&i2c3 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	aw88230_pl: speaker-amp@34 {
+		compatible = "awinic,aw882xx_smartpa";
+
+		reg = <0x34>;
+
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&aw88230_pl_int>;
+		pinctrl-1 = <&aw88230_pl_int>;
+
+		reset-gpio = <&tlmm 6 GPIO_ACTIVE_HIGH>;
+		irq-gpio = <&tlmm 7 0x2008>;
+
+		monitor-flag = <1>;
+		dc-flag = <0>;
+
+		aw-tx-topo-id = <0x1000ff00>;
+		aw-rx-topo-id = <0x1000ff01>;
+		aw-tx-port-id = <0x9021>;
+		aw-rx-port-id = <0x9020>;
+		aw-re-min = <5600>;
+		aw-re-max = <8400>;
+
+		spin-mode = "dsp_spin";
+		aw-cali-mode = "all";
+
+		sound-channel = <0>;
+
+		#sound-dai-cells = <1>;
+	};
+
+	aw88230_sr: speaker-amp@35 {
+		compatible = "awinic,aw882xx_smartpa";
+
+		reg = <0x35>;
+
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&aw88230_sr_int>;
+		pinctrl-1 = <&aw88230_sr_int>;
+
+		reset-gpio = <&tlmm 78 GPIO_ACTIVE_HIGH>;
+		irq-gpio = <&tlmm 92 0x2008>;
+
+		monitor-flag = <1>;
+		dc-flag = <0>;
+		aw-tx-topo-id = <0x1000ff00>;
+		aw-rx-topo-id = <0x1000ff01>;
+		aw-tx-port-id = <0x9021>;
+		aw-rx-port-id = <0x9020>;
+		aw-re-min = <5600>;
+		aw-re-max = <8400>;
+
+		spin-mode = "dsp_spin";
+		aw-cali-mode = "all";
+
+		sound-channel = <3>;
+
+		#sound-dai-cells = <1>;
+	};
+};
+
 &i2c11 {
 	clock-frequency = <400000>;
 	status = "okay";
@@ -851,6 +982,57 @@
     };
 
 };
+
+&q6afedai {
+	dai@56 {
+		reg = <TERTIARY_TDM_RX_0>;
+		qcom,tdm-sync-mode = <0>;
+		qcom,tdm-sync-src = <1>;
+		qcom,tdm-data-out = <0>;
+		qcom,tdm-invert-sync = <1>;
+		qcom,tdm-data-delay = <1>;
+		qcom,tdm-data-align = <0>;
+	};
+};
+
+&q6asmdai {
+	dai@0 {
+		reg = <0>;
+	};
+};
+
+&sound {
+	compatible = "qcom,sm8250-sndcard";
+	model = "Xiaomi Pad 6";
+	pinctrl-names = "default";
+	pinctrl-0 = <&tert_tdm_active>;
+
+	mm1-dai-link {
+		link-name = "MultiMedia1";
+
+		cpu {
+			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA1>;
+		};
+	};
+
+	speaker-dai-link {
+		link-name = "Tertiary TDM Playback";
+
+		cpu {
+			sound-dai = <&q6afedai TERTIARY_TDM_RX_0>;
+		};
+
+		platform {
+			sound-dai = <&q6routing>;
+		};
+
+		codec {
+			sound-dai = <&aw88230_pl 0>, <&aw88230_pr 0>,
+					    <&aw88230_sl 0>, <&aw88230_sr 0>;
+		};
+	};
+};
+
 
 &pcie0 {
 	status = "okay";
@@ -1071,7 +1253,70 @@ bq2597x_master_int_default: bq2597x-master-int-default {
 		bias-pull-up;
 		input-enable;
 	};
+	tert_tdm_active: tert-tdm-active-state {
+		sck-pins {
+			pins = "gpio133";
+			function = "mi2s2_sck";
+			drive-strength = <8>;
+			bias-disable;
+			output-high;
+		};
 
+		din-pins {
+			pins = "gpio134";
+			function = "mi2s2_data0";
+			drive-strength = <8>;
+			bias-disable;
+		};
+
+		ws-pins {
+			pins = "gpio135";
+			function = "mi2s2_ws";
+			drive-strength = <8>;
+			bias-disable;
+			output-high;
+		};
+
+		dout-pins {
+			pins = "gpio137";
+			function = "mi2s2_data1";
+			drive-strength = <8>;
+			bias-disable;
+		};
+	};
+
+
+	aw88230_pl_int: aw88230-pl-int-state {
+		pins = "gpio7";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-up;
+		input-enable;
+	};
+
+	aw88230_sr_int: aw88230-sr-int-state {
+		pins = "gpio92";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-up;
+		input-enable;
+	};
+
+	aw88230_pr_int: aw88230-pl-int-state {
+		pins = "gpio129";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-up;
+		input-enable;
+	};
+
+	aw88230_sl_int: aw88230-pl-int-state {
+		pins = "gpio67";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-up;
+		input-enable;
+	};
 };
 
 &uart6 {
