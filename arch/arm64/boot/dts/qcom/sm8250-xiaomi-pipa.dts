@@ -105,6 +105,16 @@
 		regulator-boot-on;
 	};
 
+	camera_front_vana: camera-front-vana-regulator {
+	    compatible = "regulator-fixed";
+	    regulator-name = "camera_front_vana";
+	    regulator-min-microvolt = <2800000>;
+	    regulator-max-microvolt = <2800000>;
+	    regulator-enable-ramp-delay = <135>;
+	    enable-active-high;
+	    gpio = <&tlmm 84 GPIO_ACTIVE_HIGH>;
+	};
+
 	gpio_keys: gpio-keys {
 		compatible = "gpio-keys";
 
@@ -240,6 +250,8 @@
 		};
 	};
 };
+
+
 
 &adsp {
 	firmware-name = "qcom/sm8250/xiaomi/pipa/adsp.mbn";
@@ -429,7 +441,14 @@
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		/* L2-4 are unused. */
+		vreg_l2c_1p2: ldo2 {
+			regulator-name = "vreg_l2c_1p2";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1304000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		/* L3-4 are unused. */
 
 		vreg_l5c_1p8: ldo5 {
 			regulator-name = "vreg_l5c_1p8";
@@ -548,6 +567,66 @@
 &cdsp {
 	firmware-name = "qcom/sm8250/xiaomi/pipa/cdsp.mbn";
 	status = "okay";
+};
+
+&camcc {
+	status = "okay";
+};
+
+&camss {
+	vdda-phy-supply = <&vreg_l5a_0p88>;
+	vdda-pll-supply = <&vreg_l9a_1p2>;
+
+	status = "okay";
+
+	ports {
+		/* The port index denotes CSIPHY id i.e. csiphy4 */
+		port@4 {
+			csiphy4_ep: endpoint {
+				clock-lanes = <7>;
+				data-lanes = <0 1>;
+				remote-endpoint = <&camera1_ep>;
+			};
+		};
+	};
+};
+
+&cci1 {
+	status = "okay";
+};
+
+&cci1_i2c1 {
+	camera_front: camera@20 {
+		compatible = "hynix,hi846";
+
+		reg = <0x20>;
+		pinctrl-names = "default", "suspend";
+		pinctrl-0 = <&cam3_default>;
+		pinctrl-1 = <&cam3_suspend>;
+
+		clocks = <&camcc CAM_CC_MCLK3_CLK>;
+		assigned-clocks = <&camcc CAM_CC_MCLK3_CLK>;
+		assigned-clock-rates = <19200000>;
+
+		reset-gpios = <&tlmm 109 GPIO_ACTIVE_HIGH>;
+
+		vdda-supply = <&camera_front_vana>;
+		vddd-supply = <&vreg_l2c_1p2>;
+		vddio-supply = <&vreg_l1c_1p8>;
+
+		rotation = <90>;
+		orientation = <0>;
+
+		port {
+			camera1_ep: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64
+					<80000000 200000000>;
+				remote-endpoint = <&csiphy4_ep>;
+			};
+		};
+	};
 };
 
 &gmu {
@@ -930,6 +1009,36 @@
 			drive-strength = <16>;
 			output-low;
 			bias-pull-up;
+		};
+	};
+
+	cam3_default: cam3-default-state {
+		rst-pins {
+			pins = "gpio109", "gpio84";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-disable;
+		};
+		mclk-pins {
+			pins = "gpio97";
+			function = "cam_mclk";
+			drive-strength = <4>;
+			bias-disable;
+		};
+	};
+	cam3_suspend: cam3-suspend-state {
+		rst-pins {
+			pins = "gpio109", "gpio84";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-pull-down;
+			output-low;
+		};
+		mclk-pins {
+			pins = "gpio97";
+			function = "cam_mclk";
+			drive-strength = <4>;
+			bias-pull-down;
 		};
 	};
 
