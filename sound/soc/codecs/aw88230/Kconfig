@@ -1,0 +1,8 @@
+config SND_SOC_AW88230
+	tristate "SoC Audio for awinic aw88230"
+	depends on I2C
+	select REGMAP_I2C
+	select GPIOLIB
+	help
+	  This option enables imported awinic 882xx smart pa driver
+	  from downstream.
