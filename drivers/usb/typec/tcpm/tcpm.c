@@ -5,6 +5,7 @@
  * USB Power Delivery protocol stack.
  */
 
+#include "linux/printk.h"
 #include <linux/completion.h>
 #include <linux/debugfs.h>
 #include <linux/device.h>
@@ -1892,6 +1893,13 @@ static int tcpm_pd_svdm(struct tcpm_port *port, struct typec_altmode *adev,
 
 	tcpm_log(port, "Rx VDM cmd 0x%x type %d cmd %d len %d",
 		 p[0], cmd_type, cmd, cnt);
+
+	/* hack cmd to DISCOVER_SVID */
+	if (port->partner_ident.id_header == 0) {
+		cmd = CMD_DISCOVER_SVID;
+	}
+	pr_err("Rx VDM cmd 0x%x type %d cmd %d len %d", p[0], cmd_type, cmd, cnt);
+	pr_err("charger id: 0x%x", port->partner_ident.id_header);
 
 	switch (rx_sop_type) {
 	case TCPC_TX_SOP_PRIME:
