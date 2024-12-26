@@ -44,13 +44,13 @@ struct panel_desc {
 
 static void nt36532_reset(struct nt36532 *ctx)
 {
-	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
-	usleep_range(12000, 13000);
 	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
 	usleep_range(12000, 13000);
 	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 	usleep_range(12000, 13000);
 	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
+	usleep_range(12000, 13000);
+	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 	usleep_range(12000, 13000);
 }
 
@@ -268,14 +268,14 @@ static int pipa_csot_init_sequence(struct nt36532 *ctx)
 	mipi_dsi_dcs_write_seq(dsi, 0x3b, 0x03, 0xd8, 0x1a, 0x0a, 0x0a, 0x00);
 	mipi_dsi_dcs_write_seq(dsi, 0x51, 0x0f, 0xff);
 	mipi_dsi_dcs_write_seq(dsi, 0x53, 0x24);
-	//ret = mipi_dsi_dcs_exit_sleep_mode(dsi);
+	ret = mipi_dsi_dcs_exit_sleep_mode(dsi);
 	if (ret < 0) {
 		dev_err(dev, "Failed to exit sleep mode: %d\n", ret);
 		return ret;
 	}
 	msleep(70);
 
-	//ret = mipi_dsi_dcs_set_display_on(dsi);
+	ret = mipi_dsi_dcs_set_display_on(dsi);
 	if (ret < 0) {
 		dev_err(dev, "Failed to set display on: %d\n", ret);
 		return ret;
@@ -614,9 +614,6 @@ static int nt36532_off(struct nt36532 *ctx)
 	}
 	msleep(120);
 
-	dsi->mode_flags &= MIPI_DSI_MODE_LPM;
-	if (ctx->dsi[1])
-		ctx->dsi[1]->mode_flags &= MIPI_DSI_MODE_LPM;
 
 	return 0;
 }
@@ -637,13 +634,13 @@ static int nt36532_prepare(struct drm_panel *panel)
 
 	msleep(120);
 
-	//nt36532_reset(ctx);
+	nt36532_reset(ctx);
 	
 	msleep(120);
 		
 	ret = ctx->desc->init_sequence(ctx);
 	if (ret < 0) {
-	//	regulator_disable(ctx->vddio);
+		regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
 		dev_err(panel->dev, "failed to initialize panel: %d\n", ret);
 		return ret;
 	}
@@ -686,6 +683,7 @@ static int nt36532_enable(struct drm_panel *panel)
 		dev_err(dev, "Failed to set display on: %d\n", ret);
 		return ret;
 	}
+
 	usleep_range(10000, 11000);
 
 	drm_dsc_pps_payload_pack(&pps, &ctx->dsc);
@@ -696,7 +694,6 @@ static int nt36532_enable(struct drm_panel *panel)
 	ret = mipi_dsi_picture_parameter_set(dsi, &pps);
 	if (ret < 0) {
 		dev_err(panel->dev, "failed to transmit PPS: %d\n", ret);
-		// goto fail;
 		return ret;
 	}
 
@@ -826,10 +823,10 @@ static int nt36532_probe(struct mipi_dsi_device *dsi)
 	if (ret < 0)
 		return dev_err_probe(dev, ret, "Failed to get regulators\n");
 
-//	ctx->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
-//	if (IS_ERR(ctx->reset_gpio))
-//		return dev_err_probe(dev, PTR_ERR(ctx->reset_gpio),
-//				     "Failed to get reset-gpios\n");
+	ctx->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->reset_gpio))
+		return dev_err_probe(dev, PTR_ERR(ctx->reset_gpio),
+				     "Failed to get reset-gpios\n");
 
 	ctx->desc = of_device_get_match_data(dev);
 	if (!ctx->desc)
