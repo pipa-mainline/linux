@@ -26,6 +26,7 @@ struct nt36532 {
 	struct drm_dsc_config dsc;
 	struct regulator_bulk_data supplies[3];
 	struct gpio_desc *reset_gpio;
+	u8 display_maker;
 };
 
 static inline struct nt36532 *
@@ -52,6 +53,30 @@ static void nt36532_reset(struct nt36532 *ctx)
 	usleep_range(12000, 13000);
 	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 	usleep_range(12000, 13000);
+}
+
+
+static int nt36532_read_display_maker(struct nt36532 *ctx)
+{
+	struct mipi_dsi_device *dsi= ctx->dsi[0];
+	struct device *dev = &dsi->dev;
+	int ret;
+	u8 lockdown_info[8];
+	ctx->display_maker = 0x42;
+
+	mipi_dsi_dcs_write_seq(dsi, 0xff, 0x22);
+
+	ret = mipi_dsi_dcs_read(dsi, 0x0, &lockdown_info, 8);
+	if (ret < 0) {
+		dev_err(dev, "could not read lockdown info\n");
+		return ret;
+	}
+
+	ctx->display_maker = lockdown_info[1];
+	dev_info(dev, "Got display maker: 0x%02x\n", ctx->display_maker);
+
+	mipi_dsi_dcs_write_seq(dsi, 0xff, 0x10);
+	return 0;
 }
 
 static int pipa_csot_init_sequence(struct nt36532 *ctx)
@@ -643,6 +668,10 @@ static int nt36532_prepare(struct drm_panel *panel)
 		regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
 		dev_err(panel->dev, "failed to initialize panel: %d\n", ret);
 		return ret;
+	}
+
+	if (!ctx->display_maker) {
+		nt36532_read_display_maker(ctx);
 	}
 
 	drm_dsc_pps_payload_pack(&pps, &ctx->dsc);
