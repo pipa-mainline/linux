@@ -1044,6 +1044,9 @@
 		novatek,irq-gpio = <&tlmm 39 0x2001>;
 		novatek,swrst-n8-addr = <0x03F0FE>;
 
+		novatek,pen-support;
+		novatek,wgp-stylus;
+
         firmware-name = "novatek/nt36532.bin";
     };
 
