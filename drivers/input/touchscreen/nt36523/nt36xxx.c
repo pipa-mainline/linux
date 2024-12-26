@@ -682,11 +682,17 @@ static int32_t nvt_parse_dt(struct device *dev)
 		NVT_LOG("SPI_RD_FAST_ADDR=0x%06X\n", SPI_RD_FAST_ADDR);
 	}
 
-	ret = of_property_read_string(np, "firmware-name", &ts->fw_name);
+	ret = of_property_read_string(np, "firmware-name-csot", &ts->fw_name_csot);
 	if (ret) {
-		NVT_LOG("Unable to get touchscreen firmware name\n");
-		ts->fw_name = DEFAULT_BOOT_UPDATE_FIRMWARE_NAME;
+		NVT_LOG("Unable to get touchscreen csot firmware name\n");
+		ts->fw_name_csot = DEFAULT_BOOT_UPDATE_FIRMWARE_NAME;
 	}
+
+	ret = of_property_read_string(np, "firmware-name-tianma", &ts->fw_name_tianma);
+		if (ret) {
+			NVT_LOG("Unable to get touchscreen tianma firmware name\n");
+			ts->fw_name_tianma = DEFAULT_BOOT_UPDATE_FIRMWARE_NAME;
+		}
 
 	ret = of_property_read_u32(np, "spi-max-frequency", &ts->spi_max_freq);
 	if (ret) {
@@ -1810,6 +1816,19 @@ static int panel_prepared(struct drm_panel_follower *follower)
 	ts->panel_on = true;
 
 	NVT_LOG("panel prepared\n");
+
+	if (!ts->display_maker) {
+		struct drm_panel *panel = follower->panel;
+
+		struct nt36532 *nt36532_panel = container_of(panel, struct nt36532, panel);
+		NVT_LOG("got display maker: 0x%02x\n", nt36532_panel->display_maker);
+
+		if (nt36532_panel->display_maker == 0x36) {
+			ts->fw_name = ts->fw_name_tianma;
+		} else {
+			ts->fw_name = ts->fw_name_csot;
+		}
+	}
 
 	if (!ts->event_wq) {
 		return 0;
