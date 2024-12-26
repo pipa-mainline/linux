@@ -1822,8 +1822,9 @@ static int panel_prepared(struct drm_panel_follower *follower)
 
 		struct nt36532 *nt36532_panel = container_of(panel, struct nt36532, panel);
 		NVT_LOG("got display maker: 0x%02x\n", nt36532_panel->display_maker);
+		ts->display_maker = nt36532_panel->display_maker;
 
-		if (nt36532_panel->display_maker == 0x36) {
+		if (ts->display_maker == 0x36) {
 			ts->fw_name = ts->fw_name_tianma;
 		} else {
 			ts->fw_name = ts->fw_name_csot;
