@@ -27,6 +27,20 @@
 
 #include <drm/drm_panel.h>
 
+/* PANEL HACK */
+#include <drm/display/drm_dsc.h>
+#include <linux/regulator/consumer.h>
+
+struct nt36532 {
+	struct drm_panel panel;
+	struct mipi_dsi_device *dsi[2];
+	const struct panel_desc *desc;
+	struct drm_dsc_config dsc;
+	struct regulator_bulk_data supplies[3];
+	struct gpio_desc *reset_gpio;
+	u8 display_maker;
+};
+
 #include "nt36xxx_mem_map.h"
 
 #define NVT_DEBUG 1
@@ -136,6 +150,8 @@ struct nvt_ts_data {
 	bool panel_on;
 	uint32_t config_array_size;
 	struct nvt_config_info *config_array;
+	const char *fw_name_tianma;
+	const char *fw_name_csot;
 	const char *fw_name;
 	bool lkdown_readed;
 	uint8_t fw_ver;
@@ -185,6 +201,7 @@ struct nvt_ts_data {
 	struct pinctrl *ts_pinctrl;
 	struct pinctrl_state *pinctrl_state_active;
 	struct pinctrl_state *pinctrl_state_suspend;
+	u8 display_maker;
 };
 
 typedef enum {
