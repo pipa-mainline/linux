@@ -320,8 +320,8 @@ static const struct drm_display_mode nt36532_mode_120 = {
 	.vsync_start = 2880 + 26,
 	.vsync_end = 2880 + 26 + 2,
 	.vtotal = 2880 + 26 + 2 + 214,
-	.width_mm = 1480,
-	.height_mm = 2367,
+	.width_mm = 148,
+	.height_mm = 237,
 	.type = DRM_MODE_TYPE_DRIVER,
 };
 static const struct panel_desc pipa_desc = {
