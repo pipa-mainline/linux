@@ -1047,6 +1047,8 @@
 		novatek,pen-support;
 		novatek,wgp-stylus;
 
+		panel = <&panel>;
+
         firmware-name = "novatek/nt36532.bin";
     };
 
