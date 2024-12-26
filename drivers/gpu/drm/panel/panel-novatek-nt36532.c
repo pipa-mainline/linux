@@ -745,64 +745,6 @@ static const struct drm_panel_funcs nt36532_panel_funcs = {
 	.get_modes = nt36532_get_modes,
 };
 
-static int nt36532_bl_update_status(struct backlight_device *bl)
-{
-	struct mipi_dsi_device *dsi = bl_get_data(bl);
-	struct nt36532 *ctx = mipi_dsi_get_drvdata(dsi);
-	u16 brightness = backlight_get_brightness(bl);
-	int ret;
-
-	ctx->dsi[0]->mode_flags &= ~MIPI_DSI_MODE_LPM;
-
-	ret = mipi_dsi_dcs_set_display_brightness_large(dsi, brightness);
-
-	ctx->dsi[0]->mode_flags |= MIPI_DSI_MODE_LPM;
-
-	if (ret < 0)
-		return ret;
-
-	return 0;
-}
-
-static int nt36532_bl_get_brightness(struct backlight_device *bl)
-{
-	struct mipi_dsi_device *dsi = bl_get_data(bl);
-	struct nt36532 *ctx = mipi_dsi_get_drvdata(dsi);
-	u16 brightness;
-	int ret;
-
-	ctx->dsi[0]->mode_flags &= ~MIPI_DSI_MODE_LPM;
-
-	ret = mipi_dsi_dcs_get_display_brightness_large(dsi, &brightness);
-
-	ctx->dsi[0]->mode_flags |= MIPI_DSI_MODE_LPM;
-
-	if (ret < 0)
-		return ret;
-
-	return brightness;
-}
-
-static const struct backlight_ops nt36532_bl_ops = {
-	.update_status = nt36532_bl_update_status,
-	.get_brightness = nt36532_bl_get_brightness,
-};
-
-static struct backlight_device *
-nt36532_create_backlight(struct mipi_dsi_device *dsi)
-{
-	struct device *dev = &dsi->dev;
-	const struct backlight_properties props = {
-		.type = BACKLIGHT_RAW,
-		.brightness = 3000,
-		.max_brightness = 4095,
-	};
-
-	return devm_backlight_device_register(dev, dev_name(dev), dev, dsi,
-					      &nt36532_bl_ops,
-					      &props);
-}
-
 static int nt36532_probe(struct mipi_dsi_device *dsi)
 {
 	struct mipi_dsi_host *dsi_sec_host;
@@ -866,10 +808,9 @@ static int nt36532_probe(struct mipi_dsi_device *dsi)
 		       DRM_MODE_CONNECTOR_DSI);
 	ctx->panel.prepare_prev_first = true;
 
-	ctx->panel.backlight = nt36532_create_backlight(dsi);
-	if (IS_ERR(ctx->panel.backlight))
-		return dev_err_probe(dev, PTR_ERR(ctx->panel.backlight),
-				     "Failed to create backlight\n");
+	ret = drm_panel_of_backlight(&ctx->panel);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to get backlight\n");
 
 	drm_panel_add(&ctx->panel);
 
