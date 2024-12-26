@@ -25,6 +25,8 @@
 #include <linux/spi/spi.h>
 #include <linux/uaccess.h>
 
+#include <drm/drm_panel.h>
+
 #include "nt36xxx_mem_map.h"
 
 #define NVT_DEBUG 1
@@ -130,6 +132,8 @@ struct nvt_ts_data {
 	struct notifier_block fb_notif;
 #endif
 #endif
+	struct drm_panel_follower panel_follower;
+	bool panel_on;
 	uint32_t config_array_size;
 	struct nvt_config_info *config_array;
 	const char *fw_name;
