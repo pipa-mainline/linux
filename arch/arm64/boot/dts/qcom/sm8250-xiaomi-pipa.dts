@@ -684,7 +684,7 @@
 	status = "okay";
 
 	panel: panel@0 {
-		compatible = "xiaomi,pipa-tianma-nt36532", "novatek,nt36532";
+		compatible = "xiaomi,pipa-csot-nt36532", "novatek,nt36532";
 		reg = <0>;
 
 		vddio-supply = <&vreg_l14a_1p88>;
@@ -1010,6 +1010,8 @@
 
 		novatek,pen-support;
 		novatek,wgp-stylus;
+
+		panel = <&panel>;
 
         firmware-name = "novatek/nt36532.bin";
     };
