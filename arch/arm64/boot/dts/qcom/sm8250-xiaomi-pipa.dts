@@ -1049,7 +1049,8 @@
 
 		panel = <&panel>;
 
-        firmware-name = "novatek/nt36532.bin";
+		firmware-name-csot = "novatek/nt36532_csot.bin";
+		firmware-name-tianma = "novatek/nt36532_tianma.bin";
     };
 
 };
