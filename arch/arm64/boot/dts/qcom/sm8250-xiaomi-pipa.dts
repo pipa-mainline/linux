@@ -1134,7 +1134,7 @@
 	connector {
 		compatible = "usb-c-connector";
 
-		power-role = "dual";
+		power-role = "source";
 		data-role = "dual";
 		self-powered;
 
