@@ -1166,11 +1166,12 @@
 	connector {
 		compatible = "usb-c-connector";
 
-		power-role = "source";
+		power-role = "dual";
 		data-role = "dual";
+		try-power-role = "sink";
 		self-powered;
 
-		op-sink-microwatt = <10000000>;
+		op-sink-microwatt = <60000000>;
 
 		source-pdos = <PDO_FIXED(5000, 3000,
 					  PDO_FIXED_DUAL_ROLE |
@@ -1181,7 +1182,7 @@
 				       PDO_FIXED_DUAL_ROLE |
 				       PDO_FIXED_USB_COMM |
 				       PDO_FIXED_DATA_SWAP)
-				       PDO_VAR(5000, 12000, 5000)>;
+				       PDO_VAR(5000, 9000, 5000)>;
         
         altmodes {
 			displayport {
@@ -1224,6 +1225,11 @@
 };
 
 &pm8150b_fg {
+	status = "okay";
+	monitored-battery = <&battery>;
+};
+
+&pm8150b_charger {
 	status = "okay";
 	monitored-battery = <&battery>;
 };
