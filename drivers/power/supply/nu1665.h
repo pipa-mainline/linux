@@ -12,7 +12,6 @@
 #include <linux/types.h>
 #include <linux/device.h>
 #include <linux/workqueue.h>
-#include "nu1665_fw.h"
 
 //registers define
 #define REG_RX_REV_CMD 0x0020
@@ -53,15 +52,6 @@
 #define RX_INT_POWER_OFF 0x4000
 #define RX_INT_POWER_ON 0x8000
 
-// interrupts reverse definition
-//#define RTX_INT_CEP_TIMEOUT             0x0004
-
-//#define RTX_INT_PROTECTION              0x0010
-
-//#define RTX_INT_REVERSE_TEST_READY      0x0040
-//#define RTX_INT_REVERSE_TEST_DONE       0x0080
-//#define RTX_INT_FOD                     0x0100
-
 #define RTX_INT_EPT (1 << 0)
 #define RTX_INT_START_DPING (1 << 1)
 #define INT_GET_SS (1 << 2)
@@ -72,15 +62,6 @@
 #define INT_INIT_TX (1 << 7)
 #define INT_GET_BLE_ADDR (1 << 8)
 #define FW_VERSION 0x11
-
-//factory test cmd
-#define FACTORY_TEST_CMD 0x1F
-#define FACTORY_TEST_CMD_ADAPTER_TYPE 0x0B
-#define FACTORY_TEST_CMD_RX_IOUT 0x12
-#define FACTORY_TEST_CMD_RX_VOUT 0x13
-#define FACTORY_TEST_CMD_RX_CHIP_ID 0x23
-#define FACTORY_TEST_CMD_RX_FW_ID 0x24
-#define FACTORY_TEST_CMD_REVERSE_REQ 0x30
 
 //reverse charge timer
 #define REVERSE_CHG_CHECK_DELAY_MS 100000
@@ -103,25 +84,6 @@
 #define ABS(x) ((x) > 0 ? (x) : (-x))
 #endif
 #define ABS_CEP_VALUE 1
-#define MAC_LEN 6
-
-#define nuvolta_err(fmt, ...)                                                  \
-	do {                                                                   \
-		if (log_level >= 0)                                            \
-			printk(KERN_ERR "[NUVOLTA_1665] " fmt, ##__VA_ARGS__); \
-	} while (0)
-
-#define nuvolta_info(fmt, ...)                                                 \
-	do {                                                                   \
-		if (log_level >= 1)                                            \
-			printk(KERN_ERR "[NUVOLTA_1665] " fmt, ##__VA_ARGS__); \
-	} while (0)
-
-#define nuvolta_dbg(fmt, ...)                                                  \
-	do {                                                                   \
-		if (log_level >= 2)                                            \
-			printk(KERN_ERR "[NUVOLTA_1665] " fmt, ##__VA_ARGS__); \
-	} while (0)
 
 enum FW_UPDATE_CMD {
 	FW_UPDATE_NONE,
@@ -154,21 +116,6 @@ struct params_t {
 	s8 offset;
 };
 
-struct fod_params_t {
-	u8 type;
-	u8 length;
-	u8 uuid[4];
-	struct params_t *params;
-};
-
-enum auth_status {
-	AUTH_STATUS_FAILED,
-	AUTH_STATUS_SHAR1_OK,
-	AUTH_STATUS_USB_TYPE_OK,
-	AUTH_STATUS_UUID_OK = 4,
-	AUTH_STATUS_TX_MAC_OK = 6,
-};
-
 enum wls_chg_stage {
 	NORMAL_MODE = 1,
 	TAPER_MODE,
@@ -184,20 +131,6 @@ enum wls_work_mode {
 enum wls_adapter_type {
 	ADAPTER_NONE,
 	ADAPTER_SDP,
-	ADAPTER_CDP,
-	ADAPTER_DCP,
-	ADAPTER_QC2 = 5,
-	ADAPTER_QC3,
-	ADAPTER_PD,
-	ADAPTER_AUTH_FAILED,
-	ADAPTER_XIAOMI_QC3,
-	ADAPTER_XIAOMI_PD,
-	ADAPTER_ZIMI_CAR_POWER,
-	ADAPTER_XIAOMI_PD_40W,
-	ADAPTER_VOICE_BOX,
-	ADAPTER_XIAOMI_PD_50W,
-	ADAPTER_XIAOMI_PD_60W,
-	ADAPTER_XIAOMI_PD_100W,
 };
 
 struct nuvolta_1665_chg {
@@ -270,7 +203,6 @@ struct nuvolta_1665_chg {
 	struct charger_device *cp_master_dev;
 	// power supply
 	struct power_supply *batt_psy;
-	struct power_supply *wireless_psy;
 	struct regulator *pmic_boost;
 	struct power_supply *nuvo_psy;
 	// driver parameters
@@ -297,11 +229,6 @@ struct nuvolta_1665_chg {
 	int is_reverse_chg;
 	bool fw_update;
 	int fw_version;
-	bool is_car_tx;
-	bool is_music_tx;
-	bool is_train_tx;
-	bool is_plate_tx;
-	bool is_standard_tx;
 	bool parallel_charge;
 	bool wait_for_reverse_test;
 	bool qc_enable;
