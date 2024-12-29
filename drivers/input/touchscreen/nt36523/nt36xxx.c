@@ -1401,8 +1401,8 @@ NVT_LOG("Hi2\n");
 		int x_max, y_max;
 
 		if (ts->wgp_stylus) {
-			x_max = ts->abs_x_max * 2 - 1;
-			y_max = ts->abs_y_max * 2 - 1;
+			x_max = ts->abs_x_max * 10 - 1;
+			y_max = ts->abs_y_max * 10 - 1;
 		} else {
 			x_max = ts->abs_x_max - 1;
 			y_max = ts->abs_y_max - 1;
