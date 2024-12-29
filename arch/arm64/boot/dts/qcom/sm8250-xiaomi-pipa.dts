@@ -62,7 +62,7 @@
 		charge-full-design-microamp-hours = <8840000>;
 		energy-full-design-microwatt-hours = <34300000>;
 		voltage-min-design-microvolt = <3400000>;
-		voltage-max-design-microvolt = <4470000>;
+		voltage-max-design-microvolt = <4370000>;
 	};
 
 	bl_vddpos_5p5: bl-vddpos-regulator {
@@ -939,6 +939,25 @@
 #endif
 };
 
+&i2c8 {
+	clock-frequency = <400000>;
+	status = "okay";
+	nuvolta_1665: nuvolta_1665@41 {
+		compatible = "nuvolta,rx1665";
+		status = "ok";
+		reg = <0x41>;
+		rx_irq_gpio = <&tlmm 113 0x00>;
+		hall,int3 = <&tlmm 136 0x00>;
+		hall,int4 = <&tlmm 138 0x00>;
+		reverse_chg_ovp_gpio = <&tlmm 47 0x00>;
+		reverse_boost_gpio = <&tlmm 22 0x00>;
+		idt,wpc-det = <&tlmm 145 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "idt_active", "idt_suspend";
+		pinctrl-0 = <&idt_int_active &hall_intr3_active &hall_intr4_active &txon_enable_active &power_good_active &reverse_booset_enable_active>;
+		pinctrl-1 = <&idt_int_suspend &hall_intr3_suspend &hall_intr4_suspend &txon_enable_suspend &power_good_suspend &reverse_booset_enable_suspend>;
+	};
+};
+
 &i2c11 {
 	clock-frequency = <400000>;
 	status = "okay";
@@ -1403,6 +1422,168 @@ bq2597x_master_int_default: bq2597x-master-int-default {
 		drive-strength = <2>;
 		bias-pull-up;
 		input-enable;
+	};
+	hall {
+		hall_intr3_active: hall_intr3_active {
+			/* active state */
+			mux {
+				pins = "gpio136";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio136";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+				input-enable;
+			};
+		};
+		hall_intr3_suspend: hall_intr3_suspend {
+			/* sleep state */
+			mux {
+				pins = "gpio136";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio136";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+				input-enable;
+			};
+		};
+		hall_intr4_active: hall_intr4_active {
+			/* active state */
+			mux {
+				pins = "gpio138";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio138";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+				input-enable;
+			};
+		};
+		hall_intr4_suspend: hall_intr4_suspend {
+			/* sleep state */
+			mux {
+				pins = "gpio138";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio138";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+				input-enable;
+			};
+		};
+	};
+	idt {
+		idt_int_active: idt_int_active {
+			/* active state */
+			mux {
+				pins = "gpio113";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio113";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+				input-enable;
+			};
+		};
+		idt_int_suspend: idt_int_suspend {
+			/* sleep state */
+			mux {
+				pins = "gpio113";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio113";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+				input-enable;
+			};
+		};
+		txon_enable_active: txon_enable_active {
+			/* active state */
+			mux {
+				pins = "gpio47";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio47";
+				drive-strength = <16>;
+				bias-disable;
+				bias-pull-down;
+				output-low;
+			};
+		};
+		txon_enable_suspend: txon_enable_suspend {
+			/* sleep state */
+			mux {
+				pins = "gpio47";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio47";
+				drive-strength = <16>;
+				bias-disable;
+				bias-pull-down;
+				output-low;
+			};
+		};
+		power_good_active: power_good_active {
+			/* active state */
+			mux {
+				pins = "gpio145";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio145";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-down;
+				input-enable;
+				};
+		};
+		power_good_suspend: power_good_suspend {
+			/* active state */
+			mux {
+				pins = "gpio145";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio145";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+				input-enable;
+				};
+		};
+		reverse_booset_enable_active: reverse_booset_enable__active {
+			/* active state */
+			mux {
+				pins = "gpio22";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio22";
+				drive-strength = <16>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+		reverse_booset_enable_suspend: reverse_booset_enable_suspend {
+			/* sleep state */
+			mux {
+				pins = "gpio22";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio22";
+				drive-strength = <16>;
+				bias-pull-down;
+				output-low;
+			};
+		};
 	};
 };
 
