@@ -754,7 +754,7 @@
 	status = "okay";
 };
 
-#define SPEAKER_UPSTREAM 0
+#define SPEAKER_UPSTREAM 1
 
 &i2c1 {
 	clock-frequency = <400000>;
