@@ -836,6 +836,8 @@
 
 		awinic,audio-channel = <1>;
 		awinic,sync-flag;
+
+		firmware-name = "awinic/aw88230_2113_pipa.bin";
 	};
 
 	aw88261_sl: speaker-amp@37 {
@@ -849,6 +851,8 @@
 
 		awinic,audio-channel = <2>;
 		awinic,sync-flag;
+
+		firmware-name = "awinic/aw88230_2113_pipa.bin";
 	};
 #endif
 };
@@ -932,6 +936,8 @@
 
 		awinic,audio-channel = <0>;
 		awinic,sync-flag;
+
+		firmware-name = "awinic/aw88230_2113_pipa.bin";
 	};
 
 	aw88261_sr: speaker-amp@35 {
@@ -945,6 +951,8 @@
 
 		awinic,audio-channel = <3>;
 		awinic,sync-flag;
+
+		firmware-name = "awinic/aw88230_2113_pipa.bin";
 	};
 #endif
 };
