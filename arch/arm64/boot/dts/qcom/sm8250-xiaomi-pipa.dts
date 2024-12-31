@@ -928,7 +928,7 @@
 
 		#sound-dai-cells = <0>;
 
-		reset-gpios = <&tlmm 62 GPIO_ACTIVE_HIGH>;
+		reset-gpio = <&tlmm 6 GPIO_ACTIVE_HIGH>;
 
 		awinic,audio-channel = <0>;
 		awinic,sync-flag;
