@@ -828,6 +828,8 @@
 	aw88261_pr: speaker-amp@36 {
 		compatible = "awinic,aw88261";
 
+		status = "disabled";
+
 		reg = <0x36>;
 
 		#sound-dai-cells = <0>;
@@ -842,6 +844,8 @@
 
 	aw88261_sl: speaker-amp@37 {
 		compatible = "awinic,aw88261";
+
+		status = "disabled";
 
 		reg = <0x37>;
 
@@ -942,6 +946,8 @@
 
 	aw88261_sr: speaker-amp@35 {
 		compatible = "awinic,aw88261";
+
+		status = "disabled";
 
 		reg = <0x35>;
 
@@ -1094,8 +1100,9 @@
 
 		codec {
 #if SPEAKER_UPSTREAM
-			sound-dai = <&aw88261_pl>, <&aw88261_pr>,
-					    <&aw88261_sl>, <&aw88261_sr>;
+			/*sound-dai = <&aw88261_pl>, <&aw88261_pr>,
+					    <&aw88261_sl>, <&aw88261_sr>;*/
+			sound-dai = <&aw88261_pl>;
 #else
 			sound-dai = <&aw88230_pl>, <&aw88230_pr>,
 					    <&aw88230_sl>, <&aw88230_sr>;
