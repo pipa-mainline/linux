@@ -448,6 +448,8 @@ struct aw88261 {
 	struct regmap *regmap;
 	struct aw_container *aw_cfg;
 
+	const char *fw_name;
+
 	int efuse_check;
 	int frcset_en;
 	unsigned int mute_st;
