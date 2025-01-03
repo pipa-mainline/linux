@@ -1057,9 +1057,14 @@
 };
 
 &q6afedai {
-	dai@20 {
-		reg = <TERTIARY_MI2S_RX>;
-		qcom,sd-lines = <0>;
+	dai@56 {
+		reg = <TERTIARY_TDM_RX_0>;
+		qcom,tdm-sync-mode = <0>;
+		qcom,tdm-sync-src = <1>;
+		qcom,tdm-data-out = <0>;
+		qcom,tdm-invert-sync = <1>;
+		qcom,tdm-data-delay = <1>;
+		qcom,tdm-data-align = <0>;
 	};
 };
 
@@ -1088,10 +1093,10 @@
 	};
 
 	speaker-dai-link {
-		link-name = "Tertiary MI2S Playback";
+		link-name = "Tertiary TDM Playback";
 
 		cpu {
-			sound-dai = <&q6afedai TERTIARY_MI2S_RX>;
+			sound-dai = <&q6afedai TERTIARY_TDM_RX_0>;
 		};
 
 		platform {
