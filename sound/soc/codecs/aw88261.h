@@ -455,6 +455,8 @@ struct aw88261 {
 	unsigned int mute_st;
 	unsigned int amppd_st;
 
+	int sysclk;
+
 	bool phase_sync;
 };
 

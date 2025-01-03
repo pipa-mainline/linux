@@ -711,6 +711,42 @@ static void aw88261_start(struct aw88261 *aw88261, bool sync_start)
 			AW88261_START_WORK_DELAY_MS);
 }
 
+static int aw88261_dai_set_stream(struct snd_soc_dai *dai,
+                                  void *sdw_stream, int direction)
+{
+	snd_soc_dai_dma_data_set(dai, direction, sdw_stream);
+
+	return 0;
+}
+
+static int aw88261_dai_set_sysclk(struct snd_soc_dai *dai,
+                              int clk_id, unsigned int freq, int dir)
+{
+	struct aw88261 *aw88261 = snd_soc_component_get_drvdata(dai->component);
+
+	dev_info(aw88261->aw_pa->dev, "sysclk = %d\n", freq);
+
+	aw88261->sysclk = freq;
+
+	return 0;
+}
+
+static int aw88261_dai_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
+{
+	struct aw88261 *aw88261 = snd_soc_component_get_drvdata(dai->component);
+
+	dev_info(aw88261->aw_pa->dev, "fmt = 0x%x\n", fmt);
+
+	return 0;
+}
+
+
+static const struct snd_soc_dai_ops aw88261_dai_ops = {
+	.set_stream = aw88261_dai_set_stream,
+	.set_sysclk = aw88261_dai_set_sysclk,
+	.set_fmt = aw88261_dai_set_fmt,
+};
+
 static struct snd_soc_dai_driver aw88261_dai[] = {
 	{
 		.name = "aw88261-aif",
@@ -729,6 +765,7 @@ static struct snd_soc_dai_driver aw88261_dai[] = {
 			.rates = AW88261_RATES,
 			.formats = AW88261_FORMATS,
 		},
+		.ops = &aw88261_dai_ops
 	},
 };
 
