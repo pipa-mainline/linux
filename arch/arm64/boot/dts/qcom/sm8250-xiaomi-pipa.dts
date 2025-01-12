@@ -56,7 +56,27 @@
 			format = "a8r8g8b8";
 		};
 	};
-	
+	i2c@0 {
+		compatible = "i2c-gpio";
+		sda-gpios = <&tlmm  115 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
+		scl-gpios = <&tlmm  116 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
+		i2c-gpio,delay-us = <2>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		nanosic_803: nanosic803@4c {
+			compatible = "nanosic,803";
+			reg = <0x4c>;
+			reset-gpios = <&tlmm 141 0x00>;
+			sleep-gpios = <&tlmm 155 0x00>;
+			vdd-gpios = <&tlmm 127 0x00>;
+			irq-gpios = <&tlmm 100 0x6001>;
+			touchpad-resolution-x = <2879>;
+			touchpad-resolution-y = <1799>;
+			vdd_1v8-supply = <&vreg_l4c_1p8>;
+			vdd_3v3-supply = <&vreg_l10c_3p3>;
+		};
+	};
 	battery: battery {
 		compatible = "simple-battery";
 		charge-full-design-microamp-hours = <8840000>;
@@ -450,7 +470,14 @@
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		/* L3-4 are unused. */
+		/* L3 is unused. */
+
+		vreg_l4c_1p8: ldo4 {
+			regulator-name = "vreg_l4c_1p8";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1980000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
 
 		vreg_l5c_1p8: ldo5 {
 			regulator-name = "vreg_l5c_1p8";
