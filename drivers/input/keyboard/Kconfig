@@ -797,4 +797,12 @@ config KEYBOARD_CYPRESS_SF
 	  To compile this driver as a module, choose M here: the
 	  module will be called cypress-sf.
 
+config KEYBOARD_XIAOMI_NANOSIC803
+	tristate "Xiaomi nanosic 803 keyboard/touchpad support"
+	depends on I2C
+	help
+	  Say Y here if you want to enable support for Xiaomi nanosic 803 keyboard/touchpad.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called nanosic_803.
 endif
