@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include <dt-bindings/arm/qcom,ids.h>
+#include <dt-bindings/media/video-interfaces.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/sound/qcom,q6afe.h>
@@ -609,12 +610,12 @@
 	status = "okay";
 
 	ports {
-		/* The port index denotes CSIPHY id i.e. csiphy4 */
-		port@4 {
-			csiphy4_ep: endpoint {
+		port@3 {
+			csiphy3_ep: endpoint {
 				clock-lanes = <7>;
-				data-lanes = <0 1>;
-				remote-endpoint = <&camera1_ep>;
+				data-lanes = <0 1 2 3>;
+				bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
+				remote-endpoint = <&camera_hi846_ep>;
 			};
 		};
 	};
@@ -627,32 +628,28 @@
 &cci1_i2c1 {
 	camera_front: camera@20 {
 		compatible = "hynix,hi846";
-
 		reg = <0x20>;
-		pinctrl-names = "default", "suspend";
-		pinctrl-0 = <&cam3_default>;
-		pinctrl-1 = <&cam3_suspend>;
-
-		clocks = <&camcc CAM_CC_MCLK3_CLK>;
-		assigned-clocks = <&camcc CAM_CC_MCLK3_CLK>;
-		assigned-clock-rates = <19200000>;
-
-		reset-gpios = <&tlmm 109 GPIO_ACTIVE_HIGH>;
 
 		vdda-supply = <&camera_front_vana>;
 		vddd-supply = <&vreg_l2c_1p2>;
 		vddio-supply = <&vreg_l1c_1p8>;
 
+		clocks = <&camcc CAM_CC_MCLK3_CLK>;
+		clock-frequency = <19200000>;
+
+		reset-gpios = <&tlmm 109 GPIO_ACTIVE_HIGH>;
+		pinctrl-0 = <&mclk3_active>;
+		pinctrl-names = "default";
+
+		orientation = <1>; /* Rear facing */
 		rotation = <90>;
-		orientation = <0>;
 
 		port {
-			camera1_ep: endpoint {
-				clock-lanes = <0>;
-				data-lanes = <1 2>;
-				link-frequencies = /bits/ 64
-					<80000000 200000000>;
-				remote-endpoint = <&csiphy4_ep>;
+			camera_hi846_ep: endpoint {
+				data-lanes = <1 2 3 4>;
+				bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
+				link-frequencies = /bits/ 64 <600000000>;
+				remote-endpoint = <&csiphy3_ep>;
 			};
 		};
 	};
@@ -1327,36 +1324,6 @@
 		};
 	};
 
-	cam3_default: cam3-default-state {
-		rst-pins {
-			pins = "gpio109", "gpio84";
-			function = "gpio";
-			drive-strength = <2>;
-			bias-disable;
-		};
-		mclk-pins {
-			pins = "gpio97";
-			function = "cam_mclk";
-			drive-strength = <4>;
-			bias-disable;
-		};
-	};
-	cam3_suspend: cam3-suspend-state {
-		rst-pins {
-			pins = "gpio109", "gpio84";
-			function = "gpio";
-			drive-strength = <2>;
-			bias-pull-down;
-			output-low;
-		};
-		mclk-pins {
-			pins = "gpio97";
-			function = "cam_mclk";
-			drive-strength = <4>;
-			bias-pull-down;
-		};
-	};
-
 	sde_dsi_active: sde_dsi_active-state {
 		pins = "gpio75";
 		function = "gpio";
@@ -1386,6 +1353,42 @@ bq2597x_master_int_default: bq2597x-master-int-default {
 		bias-pull-up;
 		input-enable;
 	};
+
+	mclk0_active: mclk0-active-state {
+		pins = "gpio94";
+		function = "cam_mclk";
+		bias-disable;
+		drive-strength = <2>;
+	};
+
+	mclk1_active: mclk1-active-state {
+		pins = "gpio95";
+		function = "cam_mclk";
+		bias-disable;
+		drive-strength = <2>;
+	};
+
+	mclk2_active: mclk2-active-state {
+		pins = "gpio96";
+		function = "cam_mclk";
+		bias-disable;
+		drive-strength = <2>;
+	};
+
+	mclk3_active: mclk3-active-state {
+		pins = "gpio97";
+		function = "cam_mclk";
+		bias-disable;
+		drive-strength = <2>;
+	};
+
+	mclk4_active: mclk4-active-state {
+		pins = "gpio98";
+		function = "cam_mclk";
+		bias-disable;
+		drive-strength = <2>;
+	};
+
 	tert_tdm_active: tert-tdm-active-state {
 		sck-pins {
 			pins = "gpio133";
