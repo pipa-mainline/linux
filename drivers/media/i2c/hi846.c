@@ -2060,9 +2060,9 @@ static int hi846_probe(struct i2c_client *client)
 	}
 
 	mclk_freq = clk_get_rate(hi846->clock);
-	if (mclk_freq != 25000000)
+	if ((mclk_freq != 19200000) && (mclk_freq != 25000000))
 		dev_warn(&client->dev,
-			 "External clock freq should be 25000000, not %u.\n",
+			 "External clock freq should be 19200000 or 25000000, not %u.\n",
 			 mclk_freq);
 
 	for (i = 0; i < HI846_NUM_SUPPLIES; i++)
