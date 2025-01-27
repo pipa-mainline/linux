@@ -385,6 +385,14 @@ config VIDEO_OV13B10
 	  This is a Video4Linux2 sensor driver for the OmniVision
 	  OV13B10 camera.
 
+config VIDEO_OV13B10_I2C
+	tristate "OmniVision OV13B10 I2C sensor support"
+	depends on OF_GPIO
+	select V4L2_CCI_I2C
+	help
+	  This is a Video4Linux2 sensor driver for the OmniVision
+	  OV13B10 I2C camera.
+
 config VIDEO_OV2640
 	tristate "OmniVision OV2640 sensor support"
 	help
