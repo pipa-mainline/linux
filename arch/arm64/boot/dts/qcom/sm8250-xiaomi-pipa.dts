@@ -671,7 +671,7 @@
 		clocks = <&camcc CAM_CC_MCLK0_CLK>;
 		clock-frequency = <19200000>;
 
-		reset-gpios = <&tlmm 93 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&tlmm 93 GPIO_ACTIVE_LOW>;
 		pinctrl-0 = <&mclk0_active>;
 		pinctrl-names = "default";
 
@@ -705,7 +705,7 @@
 		clocks = <&camcc CAM_CC_MCLK3_CLK>;
 		clock-frequency = <19200000>;
 
-		reset-gpios = <&tlmm 109 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&tlmm 109 GPIO_ACTIVE_LOW>;
 		pinctrl-0 = <&mclk3_active>;
 		pinctrl-names = "default";
 
