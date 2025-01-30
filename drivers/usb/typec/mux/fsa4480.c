@@ -255,6 +255,7 @@ static int fsa4480_probe(struct i2c_client *client)
 	struct typec_switch_desc sw_desc = { };
 	struct typec_mux_desc mux_desc = { };
 	struct fsa4480 *fsa;
+	int retries = 5;
 	int val = 0;
 	int ret;
 
@@ -273,7 +274,11 @@ static int fsa4480_probe(struct i2c_client *client)
 	if (IS_ERR(fsa->regmap))
 		return dev_err_probe(dev, PTR_ERR(fsa->regmap), "failed to initialize regmap\n");
 
-	ret = regmap_read(fsa->regmap, FSA4480_DEVICE_ID, &val);
+	while (retries--) {
+		ret = regmap_read(fsa->regmap, FSA4480_DEVICE_ID, &val);
+		if (!ret)
+			break;
+	}
 	if (ret)
 		return dev_err_probe(dev, -ENODEV, "FSA4480 not found\n");
 
