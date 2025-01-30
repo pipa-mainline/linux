@@ -278,6 +278,9 @@ static int fsa4480_probe(struct i2c_client *client)
 	if (ret && ret != -ENODEV)
 		return dev_err_probe(dev, ret, "Failed to get regulator\n");
 
+	/* HACK: the first read attempt may fail on some devices */
+	regmap_read(fsa->regmap, FSA4480_DEVICE_ID, &val);
+
 	ret = regmap_read(fsa->regmap, FSA4480_DEVICE_ID, &val);
 	if (ret)
 		return dev_err_probe(dev, -ENODEV, "FSA4480 not found\n");
