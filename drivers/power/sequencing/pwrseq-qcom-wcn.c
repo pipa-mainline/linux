@@ -183,6 +183,7 @@ static const struct pwrseq_target_data *pwrseq_qcom_wcn_targets[] = {
 static const char *const pwrseq_qca6390_vregs[] = {
 	"vddio",
 	"vddaon",
+	"vddasd",
 	"vddpmu",
 	"vddrfa0p95",
 	"vddrfa1p3",
