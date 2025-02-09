@@ -263,7 +263,12 @@
 	};
 };
 
-
+&cpu7_opp_table {
+	cpu7_opp21: opp-3187200000 {
+		opp-hz = /bits/ 64 <3187200000>;
+		opp-peak-kBps = <8368000 51609600>;
+	};
+};
 
 &adsp {
 	firmware-name = "qcom/sm8250/xiaomi/pipa/adsp.mbn";
