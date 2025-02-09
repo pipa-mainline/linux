@@ -383,7 +383,17 @@
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		/* L15 & L16 are unused. */
+		/* L15 is unused. */
+
+		vreg_l16a_3p0: ldo16 {
+			regulator-name = "vreg_l16a_3p0";
+			regulator-min-microvolt = <3024000>;
+			regulator-max-microvolt = <3304000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			regulator-allow-set-load;
+			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
+						   			   RPMH_REGULATOR_MODE_HPM>;
+		};
 
 		vreg_l17a_3p0: ldo17 {
 			regulator-name = "vreg_l17a_3p0";
@@ -1564,6 +1574,7 @@
 		compatible = "qcom,qca6390-bt";
 		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
 		vddaon-supply = <&vreg_pmu_aon_0p59>;
+		vddasd-supply = <&vreg_l16a_3p0>;
 		vddbtcmx-supply = <&vreg_pmu_btcmx_0p85>;
 		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
 		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
