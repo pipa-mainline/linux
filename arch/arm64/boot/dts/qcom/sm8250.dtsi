@@ -2615,6 +2615,11 @@
 				 <&apps_smmu 0x596 0x0011>;
 			interconnects = <&aggre2_noc MASTER_CRYPTO_CORE_0 0 &mc_virt SLAVE_EBI_CH0 0>;
 			interconnect-names = "memory";
+
+			/* FIXME: disabled due to a regression causing
+			 * a trap to TZ and a hard reset if this device
+			 * is used. */
+			status = "disabled";
 		};
 
 		tcsr_mutex: hwlock@1f40000 {
