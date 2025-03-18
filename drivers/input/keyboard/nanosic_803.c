@@ -265,10 +265,10 @@ void handle_modifiers(struct nanosic_803_priv *nanosic_dev, char modifiers) {
 
 		if (current_bit && !last_bit) {
 			input_report_key(nanosic_dev->keyboard_input_dev, hid_modifier_to_linux_keycode[i], 1);
-			printk("Modifier pressed: %d\n", hid_modifier_to_linux_keycode[i]);
+			//printk("Modifier pressed: %d\n", hid_modifier_to_linux_keycode[i]);
 		} else if (!current_bit && last_bit) {
 			input_report_key(nanosic_dev->keyboard_input_dev, hid_modifier_to_linux_keycode[i], 0);
-			printk("Modifier released: %d\n", hid_modifier_to_linux_keycode[i]);
+			//printk("Modifier released: %d\n", hid_modifier_to_linux_keycode[i]);
 		}
 	}
 
@@ -294,7 +294,7 @@ void nanosic_handle_keyboard(struct nanosic_803_priv *nanosic_dev, char *buf) {
 		if (!found) {
 			input_report_key(nanosic_dev->keyboard_input_dev, hid_to_linux_keycode[buf[6+i]], 1);
 			input_sync(nanosic_dev->keyboard_input_dev);
-			printk("Key pressed: 0x%02X\n", buf[6+i]);
+			//printk("Key pressed: 0x%02X\n", buf[6+i]);
 		}
 	}
 
@@ -307,7 +307,7 @@ void nanosic_handle_keyboard(struct nanosic_803_priv *nanosic_dev, char *buf) {
 			}
 		}
 		if (!found) {
-			printk("Key released: 0x%02X\n", nanosic_dev->last_pressed_key[i]);
+			//printk("Key released: 0x%02X\n", nanosic_dev->last_pressed_key[i]);
 			input_report_key(nanosic_dev->keyboard_input_dev, hid_to_linux_keycode[nanosic_dev->last_pressed_key[i]], 0);
 			input_sync(nanosic_dev->keyboard_input_dev);
 		}
@@ -392,7 +392,7 @@ static irqreturn_t nanosic_irq_handler(int irq, void *dev_id) {
 	for (int i = 0; i < ret; i++) {
 		snprintf(&hex_dump[i * 3], 4, "%02x ", buf[i]);
 	}
-	dev_err(nanosic_dev->dev, "nanosic message: %s\n", hex_dump);
+	//dev_err(nanosic_dev->dev, "nanosic message: %s\n", hex_dump);
 
 	if(buf[0] != 0x57 || buf[2] == 0) {
 		dev_err(nanosic_dev->dev, "Malformed message\n");
@@ -414,7 +414,7 @@ static irqreturn_t nanosic_irq_handler(int irq, void *dev_id) {
 int nanosic_set_caps_led(struct nanosic_803_priv *nanosic_dev, bool enable)
 {
 	int i = 0, ret = 0;
-	dev_err(nanosic_dev->dev, "Going to set caps led: %d\n", enable);
+	// dev_err(nanosic_dev->dev, "Going to set caps led: %d\n", enable);
 	char cmd[I2C_DATA_LENGTH_WRITE] = { 0x32, 0x00, 0x4E, 0x31,
 					    0x80, 0x38, 0x26, 0x01, enable};
 
@@ -429,7 +429,7 @@ int nanosic_set_caps_led(struct nanosic_803_priv *nanosic_dev, bool enable)
 static int nanosic_event(struct input_dev *dev, unsigned int type, unsigned int code, int value)
 {
 	struct nanosic_803_priv *nanosic_dev = input_get_drvdata(dev);
-	dev_err(nanosic_dev->dev, "nanosic_event type: %ld, code: %ld, value: %ld\n", type, code, value);
+	//dev_err(nanosic_dev->dev, "nanosic_event type: %ld, code: %ld, value: %ld\n", type, code, value);
 	if (!nanosic_dev)
 		return -EINVAL;
 
