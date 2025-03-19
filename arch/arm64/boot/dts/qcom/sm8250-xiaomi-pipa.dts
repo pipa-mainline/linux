@@ -635,8 +635,8 @@
 	status = "okay";
 
 	ports {
-		port@0 {
-			csiphy0_ep: endpoint {
+		port@1 {
+			csiphy1_ep: endpoint {
 				clock-lanes = <7>;
 				data-lanes = <0 1 2 3>;
 				bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
@@ -644,8 +644,8 @@
 			};
 		};
 
-		port@3 {
-			csiphy3_ep: endpoint {
+		port@4 {
+			csiphy4_ep: endpoint {
 				clock-lanes = <3>;
 				data-lanes = <0 1>;
 				bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
@@ -683,7 +683,7 @@
 				data-lanes = <1 2 3 4>;
 				bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
 				link-frequencies = /bits/ 64 <560000000>;
-				remote-endpoint = <&csiphy0_ep>;
+				remote-endpoint = <&csiphy1_ep>;
 			};
 		};
 	};
@@ -717,7 +717,7 @@
 				data-lanes = <1 2>;
 				bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
 				link-frequencies = /bits/ 64 <80000000 200000000>;
-				remote-endpoint = <&csiphy3_ep>;
+				remote-endpoint = <&csiphy4_ep>;
 			};
 		};
 	};
