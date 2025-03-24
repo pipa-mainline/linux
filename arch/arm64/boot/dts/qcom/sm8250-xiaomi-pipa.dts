@@ -817,7 +817,7 @@
 		reg = <0x36>;
 		#sound-dai-cells = <0>;
 		reset-gpios = <&tlmm 144 GPIO_ACTIVE_HIGH>;
-		awinic,audio-channel = <1>;  /* Channel 1 for right front */
+		awinic,audio-channel = <0>;  /* Channel 1 for right front */
 		awinic,sync-flag;
 		firmware-name = "awinic/aw88230_2113_pipa.bin";
 	};
@@ -828,7 +828,7 @@
 		reg = <0x37>;
 		#sound-dai-cells = <0>;
 		reset-gpios = <&tlmm 62 GPIO_ACTIVE_HIGH>;
-		awinic,audio-channel = <2>;  /* Channel 2 for left surround */
+		awinic,audio-channel = <1>;  /* Channel 2 for left surround */
 		awinic,sync-flag;
 		firmware-name = "awinic/aw88230_2113_pipa.bin";
 	};
@@ -854,7 +854,7 @@
 		reg = <0x34>;
 		#sound-dai-cells = <0>;
 		reset-gpios = <&tlmm 6 GPIO_ACTIVE_HIGH>;
-		awinic,audio-channel = <0>;  /* Channel 0 for left front */
+		awinic,audio-channel = <2>;  /* Channel 0 for left front */
 		awinic,sync-flag;
 		firmware-name = "awinic/aw88230_2113_pipa.bin";
 	};
@@ -1036,12 +1036,15 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&tert_tdm_active>;
 
+
 	mm1-dai-link {
 		link-name = "MultiMedia1";
 
 		cpu {
 			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA1>;
 		};
+
+		
 	};
 
 	speaker-dai-link {

@@ -825,20 +825,22 @@ static struct snd_soc_dai_driver aw88261_dai[] = {
 		.id = 1,
 		.playback = {
 			.stream_name = "Speaker_Playback",
-			.channels_min = 1,
-			.channels_max = 2,
+			.channels_min = 4,
+			.channels_max = 4,
 			.rates = AW88261_RATES,
 			.formats = AW88261_FORMATS,
 		},
 		.capture = {
 			.stream_name = "Speaker_Capture",
-			.channels_min = 1,
-			.channels_max = 2,
+			.channels_min = 4,
+			.channels_max = 4,
 			.rates = AW88261_RATES,
 			.formats = AW88261_FORMATS,
 		},
 		.ops = &aw88261_dai_ops
 	},
+
+	
 };
 
 static int aw88261_get_fade_in_time(struct snd_kcontrol *kcontrol,
@@ -1130,82 +1132,61 @@ static int aw88261_playback_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-/* Create dynamic widget names based on channel number */
-static const struct snd_soc_dapm_widget aw88261_base_widgets[] = {
-	/* playback */
-	SND_SOC_DAPM_AIF_IN_E("AIF_RX", "Speaker_Playback", 0, 0, 0, 0,
+static const struct snd_soc_dapm_widget aw88261_dapm_widgets[] = {
+	/* Channel 0 */
+	SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH0", "Speaker_Playback", 0, 0, 0, 0,
 			      aw88261_playback_event,
 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_OUTPUT("DAC Output"),
+	SND_SOC_DAPM_OUTPUT("DAC Output_CH0"),
+	SND_SOC_DAPM_AIF_OUT("AIF_TX_CH0", "Speaker_Capture", 0, SND_SOC_NOPM,
+			     0, 0),
+	SND_SOC_DAPM_INPUT("ADC Input_CH0"),
 
-	/* capture */
-	SND_SOC_DAPM_AIF_OUT("AIF_TX", "Speaker_Capture", 0, SND_SOC_NOPM, 0,
-			     0),
-	SND_SOC_DAPM_INPUT("ADC Input"),
+	/* Channel 1 */
+	SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH1", "Speaker_Playback", 0, 0, 0, 0,
+			      aw88261_playback_event,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_OUTPUT("DAC Output_CH1"),
+	SND_SOC_DAPM_AIF_OUT("AIF_TX_CH1", "Speaker_Capture", 0, SND_SOC_NOPM,
+			     0, 0),
+	SND_SOC_DAPM_INPUT("ADC Input_CH1"),
+
+	/* Channel 2 */
+	SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH2", "Speaker_Playback", 0, 0, 0, 0,
+			      aw88261_playback_event,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_OUTPUT("DAC Output_CH2"),
+	SND_SOC_DAPM_AIF_OUT("AIF_TX_CH2", "Speaker_Capture", 0, SND_SOC_NOPM,
+			     0, 0),
+	SND_SOC_DAPM_INPUT("ADC Input_CH2"),
+
+	/* Channel 3 */
+	SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH3", "Speaker_Playback", 0, 0, 0, 0,
+			      aw88261_playback_event,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_OUTPUT("DAC Output_CH3"),
+	SND_SOC_DAPM_AIF_OUT("AIF_TX_CH3", "Speaker_Capture", 0, SND_SOC_NOPM,
+			     0, 0),
+	SND_SOC_DAPM_INPUT("ADC Input_CH3"),
 };
 
-/* New function to create unique widget names for each channel */
-static int aw88261_create_unique_widgets(struct aw88261 *aw88261,
-					 struct snd_soc_dapm_context *dapm)
-{
-	struct aw_device *aw_dev = aw88261->aw_pa;
-	struct snd_soc_dapm_widget *widgets;
-	char *widget_name;
-	int i, ret;
-	int widget_count = ARRAY_SIZE(aw88261_base_widgets);
+static const struct snd_soc_dapm_route aw88261_audio_map[] = {
+	/* Channel 0 Routing */
+	{ "DAC Output_CH0", NULL, "AIF_RX_CH0" },
+	{ "AIF_TX_CH0", NULL, "ADC Input_CH0" },
 
-	widgets = devm_kcalloc(aw_dev->dev, widget_count,
-			       sizeof(struct snd_soc_dapm_widget), GFP_KERNEL);
-	if (!widgets)
-		return -ENOMEM;
+	/* Channel 1 Routing */
+	{ "DAC Output_CH1", NULL, "AIF_RX_CH1" },
+	{ "AIF_TX_CH1", NULL, "ADC Input_CH1" },
 
-	/* Copy the base widgets and modify their names */
-	memcpy(widgets, aw88261_base_widgets,
-	       sizeof(struct snd_soc_dapm_widget) * widget_count);
+	/* Channel 2 Routing */
+	{ "DAC Output_CH2", NULL, "AIF_RX_CH2" },
+	{ "AIF_TX_CH2", NULL, "ADC Input_CH2" },
 
-	for (i = 0; i < widget_count; i++) {
-		widget_name = devm_kasprintf(aw_dev->dev, GFP_KERNEL, "%s_CH%d",
-					     aw88261_base_widgets[i].name,
-					     aw_dev->channel);
-		if (!widget_name)
-			return -ENOMEM;
-
-		widgets[i].name = widget_name;
-	}
-
-	/* Add the unique widgets to the DAPM context */
-	ret = snd_soc_dapm_new_controls(dapm, widgets, widget_count);
-
-	return ret;
-}
-
-/* Also update the routes to use unique widget names */
-static int aw88261_create_unique_routes(struct aw88261 *aw88261,
-					struct snd_soc_dapm_context *dapm)
-{
-	struct aw_device *aw_dev = aw88261->aw_pa;
-	struct snd_soc_dapm_route *routes;
-	int ret;
-
-	routes = devm_kcalloc(aw_dev->dev, 2, sizeof(struct snd_soc_dapm_route),
-			      GFP_KERNEL);
-	if (!routes)
-		return -ENOMEM;
-
-	routes[0].sink = devm_kasprintf(aw_dev->dev, GFP_KERNEL,
-					"DAC Output_CH%d", aw_dev->channel);
-	routes[0].source = devm_kasprintf(aw_dev->dev, GFP_KERNEL,
-					  "AIF_RX_CH%d", aw_dev->channel);
-
-	routes[1].sink = devm_kasprintf(aw_dev->dev, GFP_KERNEL, "AIF_TX_CH%d",
-					aw_dev->channel);
-	routes[1].source = devm_kasprintf(aw_dev->dev, GFP_KERNEL,
-					  "ADC Input_CH%d", aw_dev->channel);
-
-	ret = snd_soc_dapm_add_routes(dapm, routes, 2);
-
-	return ret;
-}
+	/* Channel 3 Routing */
+	{ "DAC Output_CH3", NULL, "AIF_RX_CH3" },
+	{ "AIF_TX_CH3", NULL, "ADC Input_CH3" },
+};
 
 static int aw88261_frcset_check(struct aw88261 *aw88261)
 {
@@ -1356,12 +1337,18 @@ static int aw88261_codec_probe(struct snd_soc_component *component)
 				     "aw88261_request_firmware_file failed\n");
 
 	/* add widgets with unique names for each channel */
-	ret = aw88261_create_unique_widgets(aw88261, dapm);
+	// ret = aw88261_create_unique_widgets(aw88261, dapm);
+	ret = snd_soc_dapm_new_controls(dapm, aw88261_dapm_widgets,
+					ARRAY_SIZE(aw88261_dapm_widgets));
+	dev_info(component->dev, "Widget return status: %d\n", ret);
 	if (ret)
 		return ret;
 
 	/* add route with unique widget names */
-	ret = aw88261_create_unique_routes(aw88261, dapm);
+	// ret = aw88261_create_unique_routes(aw88261, dapm);
+	ret = snd_soc_dapm_add_routes(dapm, aw88261_audio_map,
+				      ARRAY_SIZE(aw88261_audio_map));
+	dev_info(component->dev, "Route return status: %d\n", ret);
 	if (ret)
 		return ret;
 
