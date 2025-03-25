@@ -16,6 +16,7 @@
 #include "aw88261.h"
 #include "aw88395/aw88395_data_type.h"
 #include "aw88395/aw88395_device.h"
+#include <sound/pcm_params.h>
 
 static const struct regmap_config aw88261_remap_config = {
 	.val_bits = 16,
@@ -813,10 +814,44 @@ static int aw88261_dai_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	return 0;
 }
 
+static int aw88261_hw_params(struct snd_pcm_substream *substream,
+			     struct snd_pcm_hw_params *params,
+			     struct snd_soc_dai *dai)
+{
+	printk("aw88261_soc: "
+	       "aw88261_hw_params invoked");
+
+	printk("aw88261_soc: "
+	       "Stream direction: %s",
+	       (substream->stream == SNDRV_PCM_STREAM_CAPTURE) ? "Capture" :
+								 "Playback");
+
+	printk("aw88261_soc: "
+	       "Requested rate: %d Hz, sample size: %d bits",
+	       params_rate(params), params_width(params));
+
+	return 0;
+}
+
+static int aw88261_startup(struct snd_pcm_substream *substream,
+			   struct snd_soc_dai *dai)
+{
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		printk("aw88261_soc: "
+		       "aw882xx_startup playback");
+	} else {
+		printk("aw88261_soc: "
+		       "aw882xx_startup capture");
+	}
+	return 0;
+}
+
 static const struct snd_soc_dai_ops aw88261_dai_ops = {
+	.startup = aw88261_startup,
 	.set_stream = aw88261_dai_set_stream,
 	.set_sysclk = aw88261_dai_set_sysclk,
 	.set_fmt = aw88261_dai_set_fmt,
+	.hw_params = aw88261_hw_params,
 };
 
 static struct snd_soc_dai_driver aw88261_dai[] = {
@@ -1133,12 +1168,14 @@ static int aw88261_playback_event(struct snd_soc_dapm_widget *w,
 }
 
 static const struct snd_soc_dapm_widget aw88261_dapm_widgets[] = {
-	SND_SOC_DAPM_AIF_IN("AIF_RX_CH0", "Playback", 0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_IN("AIF_RX_CH0", "Speaker_Playback", 0, SND_SOC_NOPM,
+			    0, 0),
 	SND_SOC_DAPM_DAC("DAC_CH0", NULL, SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_OUTPUT("SPK_OUT_CH0"),
 
 	/* Capture Path */
-	SND_SOC_DAPM_AIF_OUT("AIF_TX_CH0", "Capture", 0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_OUT("AIF_TX_CH0", "Speaker_Capture", 0, SND_SOC_NOPM,
+			     0, 0),
 	SND_SOC_DAPM_ADC("ADC_CH0", NULL, SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_INPUT("MIC_IN_CH0"),
 
@@ -1180,12 +1217,12 @@ static const struct snd_soc_dapm_widget aw88261_dapm_widgets[] = {
 };
 
 static const struct snd_soc_dapm_route aw88261_audio_map[] = {
-	{ "DAC_CH0", NULL, "AIF_RX_CH0" },
-	{ "SPK_OUT_CH0", NULL, "DAC_CH0" },
+	{ "AIF_RX_CH0", NULL, "DAC_CH0" }, // Corrected
+	{ "DAC_CH0", NULL, "SPK_OUT_CH0" }, // Corrected
 
 	/* Capture */
-	{ "AIF_TX_CH0", NULL, "ADC_CH0" },
-	{ "ADC_CH0", NULL, "MIC_IN_CH0" },
+	{ "MIC_IN_CH0", NULL, "ADC_CH0" }, // Corrected
+	{ "ADC_CH0", NULL, "AIF_TX_CH0" }, // Corrected
 
 	/* Channel 0 Routing */
 	// { "DAC Output_CH0", NULL, "AIF_RX_CH0" },
@@ -1354,8 +1391,8 @@ static int aw88261_codec_probe(struct snd_soc_component *component)
 
 	/* add widgets with unique names for each channel */
 	// ret = aw88261_create_unique_widgets(aw88261, dapm);
-	printk("aww88261_soc: "
-	       "aw88261_dapm_widgets size: %d\n",
+	printk("aw88261_soc: "
+	       "a88261_dapm_widgets size: %d\n",
 	       ARRAY_SIZE(aw88261_dapm_widgets));
 	ret = snd_soc_dapm_new_controls(dapm, aw88261_dapm_widgets,
 					ARRAY_SIZE(aw88261_dapm_widgets));
@@ -1497,7 +1534,7 @@ static int aw88261_init(struct aw88261 **aw88261, struct i2c_client *i2c,
 	aw_dev->prof_info.count = 0;
 	aw_dev->prof_info.prof_type = AW88395_DEV_NONE_TYPE_ID;
 	aw_dev->channel = 0;
-	aw_dev->fw_status = AW88261_DEV_FW_FAILED;
+	aw_dev->fw_status = AW88261_DEV_FW_OK;
 	aw_dev->fade_step = AW88261_VOLUME_STEP_DB;
 	aw_dev->volume_desc.ctl_volume = AW88261_VOL_DEFAULT_VALUE;
 	aw_dev->volume_desc.mute_volume = AW88261_MUTE_VOL;
@@ -1511,7 +1548,11 @@ static int aw88261_i2c_probe(struct i2c_client *i2c)
 {
 	struct aw88261 *aw88261;
 	int ret;
+	printk("aw88261_soc: "
+	       "aw88261_i2c_probe invoked");
 
+	dev_info(&i2c->dev, "Probing AW88261 at address 0x%x, name: %s\n",
+		 i2c->addr, dev_name(&i2c->dev));
 	ret = i2c_check_functionality(i2c->adapter, I2C_FUNC_I2C);
 	if (!ret)
 		return dev_err_probe(&i2c->dev, -ENXIO,
@@ -1548,7 +1589,12 @@ static int aw88261_i2c_probe(struct i2c_client *i2c)
 					      aw88261_dai,
 					      ARRAY_SIZE(aw88261_dai));
 	if (ret)
-		dev_err(&i2c->dev, "failed to register aw88261: %d", ret);
+		printk("aw88261_soc: "
+		       "failed to register aw88261: %d",
+		       ret);
+	printk("aw88261_soc: "
+	       "aw88261_i2c_probe success %d",
+	       ret);
 
 	return ret;
 }

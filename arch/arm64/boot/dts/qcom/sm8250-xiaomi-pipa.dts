@@ -1024,11 +1024,17 @@
 &q6asmdai {
 	dai@0 {
 		reg = <0>;
+
 	};
 };
 &vamacro {
 	status = "disabled";
 };
+
+// &q6routing {
+//     compatible = "qcom,q6adm-routing"; // Corrected compatible string
+//     status = "okay";
+// };
 
 &sound {
 	compatible = "qcom,sm8250-sndcard";
@@ -1038,13 +1044,13 @@
 
 	audio-routing =
 	/* Playback */
-	"MultiMedia1 Playback", "AIF_RX_CH0",
+	"Speaker_Playback", "AIF_RX_CH0",
 	// "MultiMedia1 Playback", "AIF_RX_CH1",
 	// "MultiMedia1 Playback", "AIF_RX_CH2",
 	// "MultiMedia1 Playback", "AIF_RX_CH3",
 
 	/* Capture (jeśli potrzebne) */
-	"AIF_TX_CH0", "MultiMedia1 Capture";
+	"AIF_TX_CH0", "Speaker_Capture";
 	// "AIF_TX_CH1", "MultiMedia1 Capture",
 	// "AIF_TX_CH2", "MultiMedia1 Capture",
 	// "AIF_TX_CH3", "MultiMedia1 Capture";
@@ -1056,26 +1062,32 @@
 		cpu {
 			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA1>;
 		};
-
-		
-	};
-
-	speaker-dai-link {
-		link-name = "Tertiary TDM Playback";
-
-		cpu {
-			sound-dai = <&q6afedai TERTIARY_TDM_RX_0>;
-		};
-
-		platform {
-			sound-dai = <&q6routing>;
-		};
-
 		codec {
 			sound-dai = <&aw88261_pl>, <&aw88261_pr>,
 				   <&aw88261_sl>, <&aw88261_sr>;
 		};
+		platform {
+			sound-dai = <&q6routing>;
+		};
 	};
+
+	// speaker-dai-link {
+	// 	link-name = "Tertiary TDM Playback";
+
+	// 	cpu {
+	// 		sound-dai = <&q6afedai TERTIARY_TDM_RX_0>;
+	// 	};
+
+		
+	// 	platform {
+	// 		sound-dai = <&q6routing>;
+	// 	};
+	// 	codec {
+	// 		sound-dai = <&aw88261_pl>, <&aw88261_pr>,
+	// 			   <&aw88261_sl>, <&aw88261_sr>;
+	// 	};
+
+	// };
 };
 
 
