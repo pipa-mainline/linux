@@ -1133,59 +1133,75 @@ static int aw88261_playback_event(struct snd_soc_dapm_widget *w,
 }
 
 static const struct snd_soc_dapm_widget aw88261_dapm_widgets[] = {
-	/* Channel 0 */
-	SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH0", "Speaker_Playback", 0, 0, 0, 0,
-			      aw88261_playback_event,
-			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_OUTPUT("DAC Output_CH0"),
-	SND_SOC_DAPM_AIF_OUT("AIF_TX_CH0", "Speaker_Capture", 0, SND_SOC_NOPM,
-			     0, 0),
-	SND_SOC_DAPM_INPUT("ADC Input_CH0"),
+	SND_SOC_DAPM_AIF_IN("AIF_RX_CH0", "Playback", 0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_DAC("DAC_CH0", NULL, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_OUTPUT("SPK_OUT_CH0"),
 
-	/* Channel 1 */
-	SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH1", "Speaker_Playback", 0, 0, 0, 0,
-			      aw88261_playback_event,
-			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_OUTPUT("DAC Output_CH1"),
-	SND_SOC_DAPM_AIF_OUT("AIF_TX_CH1", "Speaker_Capture", 0, SND_SOC_NOPM,
-			     0, 0),
-	SND_SOC_DAPM_INPUT("ADC Input_CH1"),
+	/* Capture Path */
+	SND_SOC_DAPM_AIF_OUT("AIF_TX_CH0", "Capture", 0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_ADC("ADC_CH0", NULL, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_INPUT("MIC_IN_CH0"),
 
-	/* Channel 2 */
-	SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH2", "Speaker_Playback", 0, 0, 0, 0,
-			      aw88261_playback_event,
-			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_OUTPUT("DAC Output_CH2"),
-	SND_SOC_DAPM_AIF_OUT("AIF_TX_CH2", "Speaker_Capture", 0, SND_SOC_NOPM,
-			     0, 0),
-	SND_SOC_DAPM_INPUT("ADC Input_CH2"),
+	// /* Channel 0 */
+	// SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH0", "Speaker_Playback", 0, 0, 0, 0,
+	// 		      aw88261_playback_event,
+	// 		      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	// SND_SOC_DAPM_OUTPUT("DAC Output_CH0"),
+	// SND_SOC_DAPM_AIF_OUT("AIF_TX_CH0", "Speaker_Capture", 0, SND_SOC_NOPM,
+	// 		     0, 0),
+	// SND_SOC_DAPM_INPUT("ADC Input_CH0"),
 
-	/* Channel 3 */
-	SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH3", "Speaker_Playback", 0, 0, 0, 0,
-			      aw88261_playback_event,
-			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_OUTPUT("DAC Output_CH3"),
-	SND_SOC_DAPM_AIF_OUT("AIF_TX_CH3", "Speaker_Capture", 0, SND_SOC_NOPM,
-			     0, 0),
-	SND_SOC_DAPM_INPUT("ADC Input_CH3"),
+	// /* Channel 1 */
+	// SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH1", "Speaker_Playback", 0, 0, 0, 0,
+	// 		      aw88261_playback_event,
+	// 		      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	// SND_SOC_DAPM_OUTPUT("DAC Output_CH1"),
+	// SND_SOC_DAPM_AIF_OUT("AIF_TX_CH1", "Speaker_Capture", 0, SND_SOC_NOPM,
+	// 		     0, 0),
+	// SND_SOC_DAPM_INPUT("ADC Input_CH1"),
+
+	// /* Channel 2 */
+	// SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH2", "Speaker_Playback", 0, 0, 0, 0,
+	// 		      aw88261_playback_event,
+	// 		      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	// SND_SOC_DAPM_OUTPUT("DAC Output_CH2"),
+	// SND_SOC_DAPM_AIF_OUT("AIF_TX_CH2", "Speaker_Capture", 0, SND_SOC_NOPM,
+	// 		     0, 0),
+	// SND_SOC_DAPM_INPUT("ADC Input_CH2"),
+
+	// /* Channel 3 */
+	// SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH3", "Speaker_Playback", 0, 0, 0, 0,
+	// 		      aw88261_playback_event,
+	// 		      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	// SND_SOC_DAPM_OUTPUT("DAC Output_CH3"),
+	// SND_SOC_DAPM_AIF_OUT("AIF_TX_CH3", "Speaker_Capture", 0, SND_SOC_NOPM,
+	// 		     0, 0),
+	// SND_SOC_DAPM_INPUT("ADC Input_CH3"),
 };
 
 static const struct snd_soc_dapm_route aw88261_audio_map[] = {
+	{ "DAC_CH0", NULL, "AIF_RX_CH0" },
+	{ "SPK_OUT_CH0", NULL, "DAC_CH0" },
+
+	/* Capture */
+	{ "AIF_TX_CH0", NULL, "ADC_CH0" },
+	{ "ADC_CH0", NULL, "MIC_IN_CH0" },
+
 	/* Channel 0 Routing */
-	{ "DAC Output_CH0", NULL, "AIF_RX_CH0" },
-	{ "AIF_TX_CH0", NULL, "ADC Input_CH0" },
+	// { "DAC Output_CH0", NULL, "AIF_RX_CH0" },
+	// { "AIF_TX_CH0", NULL, "ADC Input_CH0" },
 
-	/* Channel 1 Routing */
-	{ "DAC Output_CH1", NULL, "AIF_RX_CH1" },
-	{ "AIF_TX_CH1", NULL, "ADC Input_CH1" },
+	// /* Channel 1 Routing */
+	// { "DAC Output_CH1", NULL, "AIF_RX_CH1" },
+	// { "AIF_TX_CH1", NULL, "ADC Input_CH1" },
 
-	/* Channel 2 Routing */
-	{ "DAC Output_CH2", NULL, "AIF_RX_CH2" },
-	{ "AIF_TX_CH2", NULL, "ADC Input_CH2" },
+	// /* Channel 2 Routing */
+	// { "DAC Output_CH2", NULL, "AIF_RX_CH2" },
+	// { "AIF_TX_CH2", NULL, "ADC Input_CH2" },
 
-	/* Channel 3 Routing */
-	{ "DAC Output_CH3", NULL, "AIF_RX_CH3" },
-	{ "AIF_TX_CH3", NULL, "ADC Input_CH3" },
+	// /* Channel 3 Routing */
+	// { "DAC Output_CH3", NULL, "AIF_RX_CH3" },
+	// { "AIF_TX_CH3", NULL, "ADC Input_CH3" },
 };
 
 static int aw88261_frcset_check(struct aw88261 *aw88261)
@@ -1338,6 +1354,9 @@ static int aw88261_codec_probe(struct snd_soc_component *component)
 
 	/* add widgets with unique names for each channel */
 	// ret = aw88261_create_unique_widgets(aw88261, dapm);
+	printk("aww88261_soc: "
+	       "aw88261_dapm_widgets size: %d\n",
+	       ARRAY_SIZE(aw88261_dapm_widgets));
 	ret = snd_soc_dapm_new_controls(dapm, aw88261_dapm_widgets,
 					ARRAY_SIZE(aw88261_dapm_widgets));
 	dev_info(component->dev, "Widget return status: %d\n", ret);

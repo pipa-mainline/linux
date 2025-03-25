@@ -30,6 +30,9 @@ struct sm8250_snd_data {
 
 static int sm8250_snd_init(struct snd_soc_pcm_runtime *rtd)
 {
+	printk("sm8250_soc: "
+	       "sm8250_snd_init\n");
+
 	struct sm8250_snd_data *data = snd_soc_card_get_drvdata(rtd->card);
 	printk(KERN_INFO "sm8250_snd_init test1xd\n");
 
@@ -39,6 +42,9 @@ static int sm8250_snd_init(struct snd_soc_pcm_runtime *rtd)
 static int sm8250_tdm_snd_hw_params(struct snd_pcm_substream *substream,
 				    struct snd_pcm_hw_params *params)
 {
+	printk("sm8250_soc: "
+	       "sm8250_tdm_snd_hw_params\n");
+
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
 	struct snd_soc_card *card = rtd->card;
@@ -124,6 +130,9 @@ end:
 static int sm8250_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				     struct snd_pcm_hw_params *params)
 {
+	printk("sm8250_soc: "
+	       "sm8250_be_hw_params_fixup\n");
+
 	struct snd_interval *rate =
 		hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE);
 	struct snd_interval *channels =
@@ -270,6 +279,8 @@ static void sm2450_snd_shutdown(struct snd_pcm_substream *substream)
 static int sm8250_snd_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params)
 {
+	printk("sm8250_soc: "
+	       "sm8250_snd_hw_params");
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
 	struct sm8250_snd_data *pdata = snd_soc_card_get_drvdata(rtd->card);
@@ -296,6 +307,9 @@ static int sm8250_snd_prepare(struct snd_pcm_substream *substream)
 
 static int sm8250_snd_hw_free(struct snd_pcm_substream *substream)
 {
+	printk("sm8250_soc: "
+	       "sm8250_snd_hw_free\n");
+
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct sm8250_snd_data *data = snd_soc_card_get_drvdata(rtd->card);
 	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
@@ -313,6 +327,34 @@ static const struct snd_soc_ops sm8250_be_ops = {
 	.prepare = sm8250_snd_prepare,
 };
 
+// SND_SOC_DAILINK_DEFS(
+// 	multimedia1, DAILINK_COMP_ARRAY(COMP_CPU("MultiMedia1")),
+// 	// Poprawne adresy zgodne z DT (0x36 i 0x37 hex → 0-0036 i 0-0037)
+// 	DAILINK_COMP_ARRAY(
+// 		COMP_CODEC("aw88261.0-0036", "aw88261-aif"), // aw88261_pr @0x36
+// 		COMP_CODEC("aw88261.0-0037", "aw88261-aif") // aw88261_sl @0x37
+// 		),
+// 	// Platforma dla DSP Qualcomm
+// 	DAILINK_COMP_ARRAY(
+// 		COMP_PLATFORM("q6routing")) // Zgodnie z DT "q6routing"
+// );
+
+// static struct snd_soc_dai_link sm8250_dai_links[] = {
+// 	[0] = {
+// 		.name = "MultiMedia1",
+//         .stream_name = "MultiMedia1",
+//         SND_SOC_DAILINK_REG(multimedia1), // Użyj zdefiniowanych komponentów
+//         .no_pcm = 1,                     // To jest Back-End (BE)
+//         .dpcm_playback = 1,              // Wymagane dla playback
+//         .dpcm_capture = 1,               // Wymagane dla capture
+//         .ignore_pmdown_time = 1,         // Zapobiega opóźnieniom
+//         .ops = &sm8250_be_ops,           // Operacje specyficzne dla BE
+//         .be_hw_params_fixup = sm8250_be_hw_params_fixup,
+//         .init = sm8250_snd_init,
+// 	},
+// 	// ... inne linki
+// };
+
 static void sm8250_add_be_ops(struct snd_soc_card *card)
 {
 	struct snd_soc_dai_link *link;
@@ -320,6 +362,15 @@ static void sm8250_add_be_ops(struct snd_soc_card *card)
 
 	for_each_card_prelinks(card, i, link) {
 		if (link->no_pcm == 1) {
+			printk("sm8250_soc: "
+			       "Konfiguruję BE link: %s\n",
+			       link->name);
+			printk("sm8250_soc: "
+			       "CPU DAI: %s\n",
+			       link->cpus->dai_name);
+			printk("sm8250_soc: "
+			       "Codec DAI: %s\n",
+			       link->codecs->dai_name);
 			link->init = sm8250_snd_init;
 			link->be_hw_params_fixup = sm8250_be_hw_params_fixup;
 			link->ops = &sm8250_be_ops;
@@ -354,6 +405,14 @@ static int sm8250_platform_probe(struct platform_device *pdev)
 		return ret;
 
 	card->driver_name = DRIVER_NAME;
+	// card->dai_link = sm8250_dai_links; // <--- NASZA TABLICA LINKÓW
+	// card->num_links = ARRAY_SIZE(sm8250_dai_links)
+	//
+	// card->dapm_widgets = sc7280_snd_widgets;
+	// card->num_dapm_widgets = ARRAY_SIZE(sc7280_snd_widgets);
+	// card->controls = sc7280_snd_controls;
+	// card->num_controls = ARRAY_SIZE(sc7280_snd_controls);
+
 	sm8250_add_be_ops(card);
 	return devm_snd_soc_register_card(dev, card);
 }

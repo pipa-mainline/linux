@@ -1036,6 +1036,19 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&tert_tdm_active>;
 
+	audio-routing =
+	/* Playback */
+	"MultiMedia1 Playback", "AIF_RX_CH0",
+	// "MultiMedia1 Playback", "AIF_RX_CH1",
+	// "MultiMedia1 Playback", "AIF_RX_CH2",
+	// "MultiMedia1 Playback", "AIF_RX_CH3",
+
+	/* Capture (jeśli potrzebne) */
+	"AIF_TX_CH0", "MultiMedia1 Capture";
+	// "AIF_TX_CH1", "MultiMedia1 Capture",
+	// "AIF_TX_CH2", "MultiMedia1 Capture",
+	// "AIF_TX_CH3", "MultiMedia1 Capture";
+
 
 	mm1-dai-link {
 		link-name = "MultiMedia1";
