@@ -18,6 +18,7 @@
 #define MI2S_BCLK_RATE 1536000
 #define TDM_BCLK_RATE 12288000
 
+#define PRINTK_LABEL "sm8250_soc: "
 static unsigned int tdm_slot_offset[8] = { 0, 4, 8, 12, 16, 20, 24, 28 };
 
 struct sm8250_snd_data {
@@ -30,8 +31,7 @@ struct sm8250_snd_data {
 
 static int sm8250_snd_init(struct snd_soc_pcm_runtime *rtd)
 {
-	printk("sm8250_soc: "
-	       "sm8250_snd_init\n");
+	printk(PRINTK_LABEL "sm8250_snd_init\n");
 
 	struct sm8250_snd_data *data = snd_soc_card_get_drvdata(rtd->card);
 	printk(KERN_INFO "sm8250_snd_init test1xd\n");
@@ -42,8 +42,7 @@ static int sm8250_snd_init(struct snd_soc_pcm_runtime *rtd)
 static int sm8250_tdm_snd_hw_params(struct snd_pcm_substream *substream,
 				    struct snd_pcm_hw_params *params)
 {
-	printk("sm8250_soc: "
-	       "sm8250_tdm_snd_hw_params\n");
+	printk(PRINTK_LABEL "sm8250_tdm_snd_hw_params\n");
 
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
@@ -130,8 +129,7 @@ end:
 static int sm8250_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				     struct snd_pcm_hw_params *params)
 {
-	printk("sm8250_soc: "
-	       "sm8250_be_hw_params_fixup\n");
+	printk(PRINTK_LABEL "sm8250_be_hw_params_fixup\n");
 
 	struct snd_interval *rate =
 		hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE);
@@ -279,8 +277,7 @@ static void sm2450_snd_shutdown(struct snd_pcm_substream *substream)
 static int sm8250_snd_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params)
 {
-	printk("sm8250_soc: "
-	       "sm8250_snd_hw_params");
+	printk(PRINTK_LABEL "sm8250_snd_hw_params");
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
 	struct sm8250_snd_data *pdata = snd_soc_card_get_drvdata(rtd->card);
@@ -307,8 +304,7 @@ static int sm8250_snd_prepare(struct snd_pcm_substream *substream)
 
 static int sm8250_snd_hw_free(struct snd_pcm_substream *substream)
 {
-	printk("sm8250_soc: "
-	       "sm8250_snd_hw_free\n");
+	printk(PRINTK_LABEL "sm8250_snd_hw_free\n");
 
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct sm8250_snd_data *data = snd_soc_card_get_drvdata(rtd->card);
@@ -327,33 +323,31 @@ static const struct snd_soc_ops sm8250_be_ops = {
 	.prepare = sm8250_snd_prepare,
 };
 
-// SND_SOC_DAILINK_DEFS(
-// 	multimedia1, DAILINK_COMP_ARRAY(COMP_CPU("MultiMedia1")),
-// 	// Poprawne adresy zgodne z DT (0x36 i 0x37 hex → 0-0036 i 0-0037)
-// 	DAILINK_COMP_ARRAY(
-// 		COMP_CODEC("aw88261.0-0036", "aw88261-aif"), // aw88261_pr @0x36
-// 		COMP_CODEC("aw88261.0-0037", "aw88261-aif") // aw88261_sl @0x37
-// 		),
-// 	// Platforma dla DSP Qualcomm
-// 	DAILINK_COMP_ARRAY(
-// 		COMP_PLATFORM("q6routing")) // Zgodnie z DT "q6routing"
-// );
+SND_SOC_DAILINK_DEFS(
+	combined_link, DAILINK_COMP_ARRAY(COMP_CPU("TERTIARY_TDM_RX_0")),
+	DAILINK_COMP_ARRAY(COMP_CODEC("aw88261.3-0034",
+				      "aw88261-aif"), // aw88261_pl @0x34
+			   COMP_CODEC("aw88261.3-0035",
+				      "aw88261-aif"), // aw88261_sr @0x35
+			   COMP_CODEC("aw88261.1-0036",
+				      "aw88261-aif"), // aw88261_pr @0x36
+			   COMP_CODEC("aw88261.1-0037",
+				      "aw88261-aif") // aw88261_sl @0x37
+			   ));
 
-// static struct snd_soc_dai_link sm8250_dai_links[] = {
-// 	[0] = {
-// 		.name = "MultiMedia1",
-//         .stream_name = "MultiMedia1",
-//         SND_SOC_DAILINK_REG(multimedia1), // Użyj zdefiniowanych komponentów
-//         .no_pcm = 1,                     // To jest Back-End (BE)
-//         .dpcm_playback = 1,              // Wymagane dla playback
-//         .dpcm_capture = 1,               // Wymagane dla capture
-//         .ignore_pmdown_time = 1,         // Zapobiega opóźnieniom
-//         .ops = &sm8250_be_ops,           // Operacje specyficzne dla BE
-//         .be_hw_params_fixup = sm8250_be_hw_params_fixup,
-//         .init = sm8250_snd_init,
-// 	},
-// 	// ... inne linki
-// };
+static struct snd_soc_dai_link sm8250_dai_links[] = {
+	[0] = {
+		.name = "Combined Audio",
+		.stream_name = "MultiMedia1", /* Use MultiMedia1 stream name */
+		SND_SOC_DAILINK_REG(combined_link),
+		.dpcm_playback = 1,
+		.dpcm_capture = 1,
+		.ignore_pmdown_time = 1,
+		.ops = &sm8250_be_ops,
+		.be_hw_params_fixup = sm8250_be_hw_params_fixup,
+		.init = sm8250_snd_init,
+	},
+};
 
 static void sm8250_add_be_ops(struct snd_soc_card *card)
 {
@@ -385,7 +379,8 @@ static int sm8250_platform_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int ret;
 
-	printk(KERN_INFO "snd8250_platform_probe test2xd\n");
+	printk(PRINTK_LABEL "snd8250_platform_probe entered\n");
+	// todo oprintkować to
 
 	card = devm_kzalloc(dev, sizeof(*card), GFP_KERNEL);
 	if (!card)
@@ -401,20 +396,26 @@ static int sm8250_platform_probe(struct platform_device *pdev)
 	dev_set_drvdata(dev, card);
 	snd_soc_card_set_drvdata(card, data);
 	ret = qcom_snd_parse_of(card);
+	printk(PRINTK_LABEL "snd8250_platform_probe parse of result %d\n", ret);
 	if (ret)
 		return ret;
 
 	card->driver_name = DRIVER_NAME;
-	// card->dai_link = sm8250_dai_links; // <--- NASZA TABLICA LINKÓW
-	// card->num_links = ARRAY_SIZE(sm8250_dai_links)
-	//
+	card->dai_link = sm8250_dai_links; // <--- NASZA TABLICA LINKÓW
+	card->num_links = ARRAY_SIZE(sm8250_dai_links);
+	printk(PRINTK_LABEL "snd8250_platform_probe dai link done\n");
+
 	// card->dapm_widgets = sc7280_snd_widgets;
 	// card->num_dapm_widgets = ARRAY_SIZE(sc7280_snd_widgets);
 	// card->controls = sc7280_snd_controls;
 	// card->num_controls = ARRAY_SIZE(sc7280_snd_controls);
 
 	sm8250_add_be_ops(card);
-	return devm_snd_soc_register_card(dev, card);
+	ret = devm_snd_soc_register_card(dev, card);
+	printk(PRINTK_LABEL
+	       "snd8250_platform_probe card registered with result %d\n",
+	       ret);
+	return ret;
 }
 
 static const struct of_device_id snd_sm8250_dt_match[] = {
