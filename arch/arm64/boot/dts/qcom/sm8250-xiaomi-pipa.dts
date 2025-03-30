@@ -1062,32 +1062,28 @@
 		cpu {
 			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA1>;
 		};
+		
+	};
+
+
+	speaker-dai-link {
+		link-name = "Tertiary TDM0";
+
+		cpu {
+			sound-dai = <&q6afedai TERTIARY_TDM_RX_0>;
+		};
+
+		
+		platform {
+			sound-dai = <&q6routing>;
+		};
 		codec {
 			sound-dai = <&aw88261_pl>, <&aw88261_pr>,
 				   <&aw88261_sl>, <&aw88261_sr>;
 		};
-		platform {
-			sound-dai = <&q6routing>;
-		};
-	};
-
-	// speaker-dai-link {
-	// 	link-name = "Tertiary TDM Playback";
-
-	// 	cpu {
-	// 		sound-dai = <&q6afedai TERTIARY_TDM_RX_0>;
-	// 	};
-
 		
-	// 	platform {
-	// 		sound-dai = <&q6routing>;
-	// 	};
-	// 	codec {
-	// 		sound-dai = <&aw88261_pl>, <&aw88261_pr>,
-	// 			   <&aw88261_sl>, <&aw88261_sr>;
-	// 	};
 
-	// };
+	};
 };
 
 
