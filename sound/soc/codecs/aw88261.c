@@ -788,8 +788,11 @@ static void aw88261_start(struct aw88261 *aw88261, bool sync_start)
 static int aw88261_dai_set_stream(struct snd_soc_dai *dai, void *sdw_stream,
 				  int direction)
 {
+	printk("aw88261_soc: "
+	       "aw88261_dai_set_stream invoked");
 	snd_soc_dai_dma_data_set(dai, direction, sdw_stream);
-
+	printk("aw88261_soc: "
+	       "aw88261_dai_set_stream\n");
 	return 0;
 }
 
@@ -809,6 +812,7 @@ static int aw88261_dai_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 {
 	struct aw88261 *aw88261 = snd_soc_component_get_drvdata(dai->component);
 
+	// TODO Maybe it is needed to send params here but idk XD
 	dev_info(aw88261->aw_pa->dev, "fmt = 0x%x\n", fmt);
 
 	return 0;
@@ -818,8 +822,26 @@ static int aw88261_hw_params(struct snd_pcm_substream *substream,
 			     struct snd_pcm_hw_params *params,
 			     struct snd_soc_dai *dai)
 {
+	struct snd_soc_component *component = dai->component;
+	struct aw88261 *aw88261 = snd_soc_component_get_drvdata(component);
+	unsigned int mclk = aw88261->sysclk;
+	unsigned int rate = params_rate(params);
+	unsigned int fmt = params_format(params);
+
+	dev_info(aw88261->aw_pa->dev,
+		 "hw_params: mclk=%d, rate=%d, format=%x\n", mclk, rate, fmt);
+
+	/* No specific I2S format or rate configurations are applied here.
+	 * The driver relies on default configurations or configurations
+	 * applied elsewhere in the system.
+	 *
+	 * If specific configurations are needed, they should be implemented here,
+	 * setting up the DAI based on the parameters.
+	 */
 	printk("aw88261_soc: "
 	       "aw88261_hw_params invoked");
+
+	// aw_snd_soc_codec_t *codec = dai->component;
 
 	printk("aw88261_soc: "
 	       "Stream direction: %s",
@@ -836,9 +858,14 @@ static int aw88261_hw_params(struct snd_pcm_substream *substream,
 static int aw88261_startup(struct snd_pcm_substream *substream,
 			   struct snd_soc_dai *dai)
 {
+	// aw_snd_soc_codec_t *codec = dai->component;
+
+	// struct aw88261 *aw88261 = snd_soc_component_get_drvdata(codec);
+
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		printk("aw88261_soc: "
 		       "aw882xx_startup playback");
+
 	} else {
 		printk("aw88261_soc: "
 		       "aw882xx_startup capture");
@@ -1167,78 +1194,46 @@ static int aw88261_playback_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static const struct snd_soc_dapm_widget aw88261_dapm_widgets[] = {
-	SND_SOC_DAPM_AIF_IN("AIF_RX_CH0", "Speaker_Playback", 0, SND_SOC_NOPM,
-			    0, 0),
-	SND_SOC_DAPM_DAC("DAC_CH0", NULL, SND_SOC_NOPM, 0, 0),
-	SND_SOC_DAPM_OUTPUT("SPK_OUT_CH0"),
+// static const struct snd_soc_dapm_widget aw88261_dapm_widgets[] = {
+// 	SND_SOC_DAPM_AIF_IN("AIF_RX_CH0", "Speaker_Playback", 0, SND_SOC_NOPM,
+// 			    0, 0),
+// 	SND_SOC_DAPM_DAC("DAC_CH0", NULL, SND_SOC_NOPM, 0, 0),
+// 	SND_SOC_DAPM_OUTPUT("SPK_OUT_CH0"),
 
-	/* Capture Path */
+// 	/* Capture Path */
+// 	SND_SOC_DAPM_AIF_OUT("AIF_TX_CH0", "Speaker_Capture", 0, SND_SOC_NOPM,
+// 			     0, 0),
+// 	SND_SOC_DAPM_ADC("ADC_CH0", NULL, SND_SOC_NOPM, 0, 0),
+// 	SND_SOC_DAPM_INPUT("MIC_IN_CH0"),
+
+// };
+
+// static const struct snd_soc_dapm_route aw88261_audio_map[] = {
+// 	{ "AIF_RX_CH0", NULL, "DAC_CH0" }, // Corrected
+// 	{ "DAC_CH0", NULL, "SPK_OUT_CH0" }, // Corrected
+
+// 	/* Capture */
+// 	{ "MIC_IN_CH0", NULL, "ADC_CH0" }, // Corrected
+// 	{ "ADC_CH0", NULL, "AIF_TX_CH0" }, // Corrected
+
+// };
+
+static const struct snd_soc_dapm_widget aw88261_dapm_widgets[] = {
+	/* playback */
+	SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH0", "Speaker_Playback", 0, 0, 0, 0,
+			      aw88261_playback_event,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_OUTPUT("DAC Output CH0"),
+
+	/* capture */
 	SND_SOC_DAPM_AIF_OUT("AIF_TX_CH0", "Speaker_Capture", 0, SND_SOC_NOPM,
 			     0, 0),
-	SND_SOC_DAPM_ADC("ADC_CH0", NULL, SND_SOC_NOPM, 0, 0),
-	SND_SOC_DAPM_INPUT("MIC_IN_CH0"),
-
-	// /* Channel 0 */
-	// SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH0", "Speaker_Playback", 0, 0, 0, 0,
-	// 		      aw88261_playback_event,
-	// 		      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	// SND_SOC_DAPM_OUTPUT("DAC Output_CH0"),
-	// SND_SOC_DAPM_AIF_OUT("AIF_TX_CH0", "Speaker_Capture", 0, SND_SOC_NOPM,
-	// 		     0, 0),
-	// SND_SOC_DAPM_INPUT("ADC Input_CH0"),
-
-	// /* Channel 1 */
-	// SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH1", "Speaker_Playback", 0, 0, 0, 0,
-	// 		      aw88261_playback_event,
-	// 		      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	// SND_SOC_DAPM_OUTPUT("DAC Output_CH1"),
-	// SND_SOC_DAPM_AIF_OUT("AIF_TX_CH1", "Speaker_Capture", 0, SND_SOC_NOPM,
-	// 		     0, 0),
-	// SND_SOC_DAPM_INPUT("ADC Input_CH1"),
-
-	// /* Channel 2 */
-	// SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH2", "Speaker_Playback", 0, 0, 0, 0,
-	// 		      aw88261_playback_event,
-	// 		      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	// SND_SOC_DAPM_OUTPUT("DAC Output_CH2"),
-	// SND_SOC_DAPM_AIF_OUT("AIF_TX_CH2", "Speaker_Capture", 0, SND_SOC_NOPM,
-	// 		     0, 0),
-	// SND_SOC_DAPM_INPUT("ADC Input_CH2"),
-
-	// /* Channel 3 */
-	// SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH3", "Speaker_Playback", 0, 0, 0, 0,
-	// 		      aw88261_playback_event,
-	// 		      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	// SND_SOC_DAPM_OUTPUT("DAC Output_CH3"),
-	// SND_SOC_DAPM_AIF_OUT("AIF_TX_CH3", "Speaker_Capture", 0, SND_SOC_NOPM,
-	// 		     0, 0),
-	// SND_SOC_DAPM_INPUT("ADC Input_CH3"),
+	SND_SOC_DAPM_INPUT("ADC Input CH0"),
 };
 
 static const struct snd_soc_dapm_route aw88261_audio_map[] = {
-	{ "AIF_RX_CH0", NULL, "DAC_CH0" }, // Corrected
-	{ "DAC_CH0", NULL, "SPK_OUT_CH0" }, // Corrected
-
-	/* Capture */
-	{ "MIC_IN_CH0", NULL, "ADC_CH0" }, // Corrected
-	{ "ADC_CH0", NULL, "AIF_TX_CH0" }, // Corrected
-
-	/* Channel 0 Routing */
-	// { "DAC Output_CH0", NULL, "AIF_RX_CH0" },
-	// { "AIF_TX_CH0", NULL, "ADC Input_CH0" },
-
-	// /* Channel 1 Routing */
-	// { "DAC Output_CH1", NULL, "AIF_RX_CH1" },
-	// { "AIF_TX_CH1", NULL, "ADC Input_CH1" },
-
-	// /* Channel 2 Routing */
-	// { "DAC Output_CH2", NULL, "AIF_RX_CH2" },
-	// { "AIF_TX_CH2", NULL, "ADC Input_CH2" },
-
-	// /* Channel 3 Routing */
-	// { "DAC Output_CH3", NULL, "AIF_RX_CH3" },
-	// { "AIF_TX_CH3", NULL, "ADC Input_CH3" },
+	{ "DAC Output CH0", NULL, "AIF_RX_CH0" },
+	{ "AIF_TX_CH0", NULL, "ADC Input CH0" },
 };
 
 static int aw88261_frcset_check(struct aw88261 *aw88261)
