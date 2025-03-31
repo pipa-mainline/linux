@@ -413,18 +413,18 @@ static struct snd_soc_dai_link sm8250_dai_links[] = {
         .be_hw_params_fixup = sm8250_be_hw_params_fixup,
         .init = sm8250_snd_init,
     },
-    [1] = {
-        .name = "MultiMedia1",
-        .cpus = & (struct snd_soc_dai_link_component) {
-            .dai_name = "MultiMedia1",
-        },
-        .codecs = NULL, // Usuń codec
-        .platforms = NULL,
-        .ignore_pmdown_time = 1,
-        .ops = &sm8250_be_ops,
-        .be_hw_params_fixup = sm8250_be_hw_params_fixup,
-        .init = sm8250_snd_init,
-    },
+    // [1] = {
+    //     .name = "MultiMedia1",
+    //     .cpus = & (struct snd_soc_dai_link_component) {
+    //         .dai_name = "MultiMedia1",
+    //     },
+    //     .codecs = NULL, // Usuń codec
+    //     .platforms = NULL,
+    //     .ignore_pmdown_time = 1,
+    //     .ops = &sm8250_be_ops,
+    //     .be_hw_params_fixup = sm8250_be_hw_params_fixup,
+    //     .init = sm8250_snd_init,
+    // },
     
 };
 
@@ -445,7 +445,8 @@ static void sm8250_add_be_ops(struct snd_soc_card *card)
 		//        "Codec DAI: %s\n",
 		//        link->codecs->dai_name);
 		link->be_hw_params_fixup = sm8250_be_hw_params_fixup;
-		link->ops = &sm8250_be_ops;
+		if (link->no_pcm)
+			link->ops = &sm8250_be_ops;
 		// }
 		link->init = sm8250_snd_init;
 		printk(PRINTK_LABEL "sm8250_add_be_ops link %s\n", link->name);
