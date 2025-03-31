@@ -1007,22 +1007,23 @@
 };
 
 &q6afedai {
-	dai@56 {
+	dai@56 { /* Tertiary TDM RX??? */
 		reg = <TERTIARY_TDM_RX_0>;
-		qcom,tdm-sync-mode = <1>;     /* Sync mode: 1=secondary (for AW88261) */
+		qcom,tdm-sync-mode = <0>;     /* Sync mode: 1=secondary (for AW88261) */
 		qcom,tdm-sync-src = <1>;      /* Sync source: 1=internal */
 		qcom,tdm-data-out = <0>;      /* Data out: 0=enabled */
 		qcom,tdm-invert-sync = <0>;   /* Don't invert sync for AW88261 */
 		qcom,tdm-data-delay = <1>;    /* 1-bit data delay for proper alignment */
 		qcom,tdm-data-align = <0>;    /* No special alignment needed */
-		qcom,tdm-slots = <8>;         /* Use 8 slots for quad-speaker */
-		qcom,tdm-slot-width = <32>;   /* 32-bit slot width */
-		qcom,tdm-slot-mask = <0x0F>;  /* Enable slots 0-3 for quad-speaker */
+		// qcom,tdm-slots = <8>;         /* Use 8 slots for quad-speaker */
+		// qcom,tdm-slot-width = <32>;   /* 32-bit slot width */
+		// qcom,tdm-slot-mask = <0x0F>;  /* Enable slots 0-3 for quad-speaker */
+		
 	};
 };
 
 &q6asmdai {
-	dai@0 {
+	dai@0 { /* MultiMedia1??? */
 		reg = <0>;
 
 	};
@@ -1036,26 +1037,14 @@
 //     status = "okay";
 // };
 
+
+
 &sound {
 	compatible = "qcom,sm8250-sndcard";
 	model = "Xiaomi Pad 6";
 	pinctrl-names = "default";
 	pinctrl-0 = <&tert_tdm_active>;
-
-	audio-routing =
-	/* Playback */
-	"Speaker_Playback", "AIF_RX_CH0",
-	// "MultiMedia1 Playback", "AIF_RX_CH1",
-	// "MultiMedia1 Playback", "AIF_RX_CH2",
-	// "MultiMedia1 Playback", "AIF_RX_CH3",
-
-	/* Capture (jeśli potrzebne) */
-	"AIF_TX_CH0", "Speaker_Capture";
-	// "AIF_TX_CH1", "MultiMedia1 Capture",
-	// "AIF_TX_CH2", "MultiMedia1 Capture",
-	// "AIF_TX_CH3", "MultiMedia1 Capture";
-
-
+	
 	mm1-dai-link {
 		link-name = "MultiMedia1";
 
@@ -1067,8 +1056,8 @@
 
 
 	speaker-dai-link {
-		link-name = "Tertiary TDM0";
-
+		link-name = "Tertiary TDM Playback";
+		no-pcm;
 		cpu {
 			sound-dai = <&q6afedai TERTIARY_TDM_RX_0>;
 		};
