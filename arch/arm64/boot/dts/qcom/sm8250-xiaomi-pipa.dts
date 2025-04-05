@@ -852,6 +852,8 @@
 		compatible = "awinic,aw88261";
 		status = "okay";
 		reg = <0x34>;
+		rx_slot = <0>;
+		tx_slot = <5>;
 		#sound-dai-cells = <0>;
 		reset-gpios = <&tlmm 6 GPIO_ACTIVE_HIGH>;
 		awinic,audio-channel = <2>;  /* Channel 0 for left front */
@@ -1009,7 +1011,7 @@
 &q6afedai {
 	dai@56 { /* Tertiary TDM RX??? */
 		reg = <TERTIARY_TDM_RX_0>;
-		qcom,tdm-sync-mode = <0>;     /* Sync mode: 1=secondary (for AW88261) */
+		qcom,tdm-sync-mode = <1>;     /* Sync mode: 1=secondary (for AW88261) */
 		qcom,tdm-sync-src = <1>;      /* Sync source: 1=internal */
 		qcom,tdm-data-out = <0>;      /* Data out: 0=enabled */
 		qcom,tdm-invert-sync = <0>;   /* Don't invert sync for AW88261 */
