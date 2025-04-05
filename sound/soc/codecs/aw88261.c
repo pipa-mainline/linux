@@ -116,18 +116,26 @@ static void aw88261_dev_pwd(struct aw_device *aw_dev, bool pwd)
 		regmap_update_bits(aw_dev->regmap, AW88261_SYSCTRL_REG,
 				   ~AW88261_PWDN_MASK,
 				   AW88261_PWDN_WORKING_VALUE);
+	printk("aw88261.c: "
+	       "aw88261_dev_pwd: pwd = %d\n",
+	       pwd);
 }
 
 static void aw88261_dev_amppd(struct aw_device *aw_dev, bool amppd)
 {
+	int ret;
 	if (amppd)
-		regmap_update_bits(aw_dev->regmap, AW88261_SYSCTRL_REG,
-				   ~AW88261_AMPPD_MASK,
-				   AW88261_AMPPD_POWER_DOWN_VALUE);
+		ret = regmap_update_bits(aw_dev->regmap, AW88261_SYSCTRL_REG,
+					 ~AW88261_AMPPD_MASK,
+					 AW88261_AMPPD_POWER_DOWN_VALUE);
 	else
-		regmap_update_bits(aw_dev->regmap, AW88261_SYSCTRL_REG,
-				   ~AW88261_AMPPD_MASK,
-				   AW88261_AMPPD_WORKING_VALUE);
+		ret = regmap_update_bits(aw_dev->regmap, AW88261_SYSCTRL_REG,
+					 ~AW88261_AMPPD_MASK,
+					 AW88261_AMPPD_WORKING_VALUE);
+
+	printk("aw88261.c: "
+	       "aw88261_dev_amppd: amppd = %d, ret = %d\n",
+	       amppd, ret);
 }
 
 static void aw88261_dev_mute(struct aw_device *aw_dev, bool is_mute)
@@ -324,6 +332,8 @@ static int aw88261_dev_check_sysst(struct aw_device *aw_dev)
 				reg_val, AW88261_BIT_SYSST_CHECK);
 			usleep_range(AW88261_2000_US, AW88261_2000_US + 10);
 		} else {
+			dev_err(aw_dev->dev, "check sysst ok, reg_val=0x%04x",
+				reg_val, AW88261_BIT_SYSST_CHECK);
 			return 0;
 		}
 	}
@@ -539,7 +549,8 @@ static int aw88261_dev_reg_update(struct aw88261 *aw88261, unsigned char *data,
 			/* enable uls hmute */
 			reg_val &= AW88261_ULS_HMUTE_MASK;
 			reg_val |= AW88261_ULS_HMUTE_ENABLE_VALUE;
-			// reg_val = 0b0_0_11_0_1_1_0_0_0_0_0_0_0_0;
+
+			reg_val = 0b0011001001000000;
 		}
 
 		/* Special handling for I2SCTRL registers for Xiaomi Pad 6 */
@@ -581,7 +592,7 @@ static int aw88261_dev_reg_update(struct aw88261 *aw88261, unsigned char *data,
 			// reg_val &= AW88261_I2STXEN_MASK;
 			// reg_val |= AW88261_I2STXEN_DISABLE_VALUE;
 			reg_val =
-				0b0000000000010010; // 0b00000000_0_0_0_1_0_0_1_0;
+				0b0000000011110110; // 0b00000000_0_0_0_1_0_0_1_0;
 		}
 
 		if (reg_addr == AW88261_SYSCTRL2_REG) {
