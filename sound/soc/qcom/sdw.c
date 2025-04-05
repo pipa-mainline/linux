@@ -30,10 +30,14 @@ int qcom_snd_sdw_startup(struct snd_pcm_substream *substream)
 	sruntime = sdw_alloc_stream(cpu_dai->name);
 	if (!sruntime)
 		return -ENOMEM;
-
+	printk("sdw.c: "
+	       "qcom_snd_sdw_startup before for loop\n");
 	for_each_rtd_codec_dais(rtd, i, codec_dai) {
 		ret = snd_soc_dai_set_stream(codec_dai, sruntime,
 					     substream->stream);
+		printk("sdw.c: "
+		       "qcom_snd_sdw_startup: snd_soc_dai_set_stream for codec %s returned %d\n",
+		       codec_dai->name, ret);
 		if (ret < 0 && ret != -ENOTSUPP) {
 			dev_err(rtd->dev, "Failed to set sdw stream on %s\n",
 				codec_dai->name);
@@ -57,10 +61,15 @@ int qcom_snd_sdw_prepare(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
 	int ret;
+	printk("sdw.c: qcom_snd_sdw_prepare: started for cpu_dai id %d\n",
+	       cpu_dai->id);
 
-	if (!sruntime)
+	if (!sruntime) {
+		printk("sdw.c: qcom_snd_sdw_prepare: sruntime is NULL!\n");
 		return 0;
-
+	}
+	printk("sdw.c: sruntime name: %s, state: %d\n", sruntime->name,
+	       sruntime->state);
 	switch (cpu_dai->id) {
 	case WSA_CODEC_DMA_RX_0:
 	case WSA_CODEC_DMA_RX_1:
@@ -72,16 +81,21 @@ int qcom_snd_sdw_prepare(struct snd_pcm_substream *substream,
 	case TX_CODEC_DMA_TX_3:
 		break;
 	default:
+		printk("sdw.c: cpu_dai id %d not handled, skipping\n",
+		       cpu_dai->id);
+		return 0;
+	}
+	if (*stream_prepared) {
+		printk("sdw.c: Stream already prepared\n");
 		return 0;
 	}
 
-	if (*stream_prepared)
-		return 0;
-
 	ret = sdw_prepare_stream(sruntime);
-	if (ret)
+	printk("sdw.c: sdw_prepare_stream returned %d\n", ret);
+	if (ret) {
+		printk("sdw.c: sdw_prepare_stream error: %d\n", ret);
 		return ret;
-
+	}
 	/**
 	 * NOTE: there is a strict hw requirement about the ordering of port
 	 * enables and actual WSA881x PA enable. PA enable should only happen
@@ -91,11 +105,15 @@ int qcom_snd_sdw_prepare(struct snd_pcm_substream *substream,
 	 */
 
 	ret = sdw_enable_stream(sruntime);
+	printk("sdw.c: sdw_enable_stream returned %d\n", ret);
 	if (ret) {
+		printk("sdw.c: sdw_enable_stream error: %d\n", ret);
 		sdw_deprepare_stream(sruntime);
 		return ret;
 	}
-	*stream_prepared  = true;
+
+	*stream_prepared = true;
+	printk("sdw.c: Stream prepared successfully\n");
 
 	return ret;
 }
@@ -120,7 +138,8 @@ int qcom_snd_sdw_hw_params(struct snd_pcm_substream *substream,
 	case TX_CODEC_DMA_TX_2:
 	case TX_CODEC_DMA_TX_3:
 		for_each_rtd_codec_dais(rtd, i, codec_dai) {
-			sruntime = snd_soc_dai_get_stream(codec_dai, substream->stream);
+			sruntime = snd_soc_dai_get_stream(codec_dai,
+							  substream->stream);
 			if (sruntime != ERR_PTR(-ENOTSUPP))
 				*psruntime = sruntime;
 		}
@@ -128,12 +147,12 @@ int qcom_snd_sdw_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	return 0;
-
 }
 EXPORT_SYMBOL_GPL(qcom_snd_sdw_hw_params);
 
 int qcom_snd_sdw_hw_free(struct snd_pcm_substream *substream,
-			 struct sdw_stream_runtime *sruntime, bool *stream_prepared)
+			 struct sdw_stream_runtime *sruntime,
+			 bool *stream_prepared)
 {
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
