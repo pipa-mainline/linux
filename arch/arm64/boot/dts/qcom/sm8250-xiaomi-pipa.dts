@@ -811,7 +811,7 @@
 	};
 
 	/* Enable AW88261 codecs */
-	aw88261_pr: speaker-amp@36 {
+	aw88261_pr: speaker-amp@36 { // IT IS ACTUALLY TOP RIGHT SPEAKER WHEN TABLET IS IN LANDSCAPE ORIENTATION
 		compatible = "awinic,aw88261";
 		status = "okay";
 		reg = <0x36>;
@@ -820,9 +820,13 @@
 		awinic,audio-channel = <0>;  /* Channel 1 for right front */
 		awinic,sync-flag;
 		firmware-name = "awinic/aw88230_2113_pipa.bin";
+
+
+		rx_slot = <1>; 
+
 	};
 
-	aw88261_sl: speaker-amp@37 {
+	aw88261_sl: speaker-amp@37 { // IT IS ACTUALLY BOTTOM RIGHT SPEAKER WHEN TABLET IS IN LANDSCAPE ORIENTATION
 		compatible = "awinic,aw88261";
 		status = "okay";
 		reg = <0x37>;
@@ -831,6 +835,10 @@
 		awinic,audio-channel = <1>;  /* Channel 2 for left surround */
 		awinic,sync-flag;
 		firmware-name = "awinic/aw88230_2113_pipa.bin";
+
+
+		rx_slot = <1>;
+
 	};
 };
 
@@ -848,7 +856,7 @@
 	};
 
 	/* Enable AW88261 codecs */
-	aw88261_pl: speaker-amp@34 {
+	aw88261_pl: speaker-amp@34 { // IT IS ACTUALLY SOME LEFT (IDK IF TOP OR BOTTOM) SPEAKER WHEN TABLET IS IN LANDSCAPE ORIENTATION
 		compatible = "awinic,aw88261";
 		status = "okay";
 		reg = <0x34>;
@@ -858,9 +866,13 @@
 		awinic,audio-channel = <2>;  /* Channel 0 for left front */
 		awinic,sync-flag;
 		firmware-name = "awinic/aw88230_2113_pipa.bin";
+
+
+		rx_slot = <0>;
+
 	};
 
-	aw88261_sr: speaker-amp@35 {
+	aw88261_sr: speaker-amp@35 { // IT IS ACTUALLY SOME LEFT (IDK IF TOP OR BOTTOM) SPEAKER WHEN TABLET IS IN LANDSCAPE ORIENTATION
 		compatible = "awinic,aw88261";
 		status = "okay";
 		reg = <0x35>;
@@ -869,6 +881,9 @@
 		awinic,audio-channel = <3>;  /* Channel 3 for right surround */
 		awinic,sync-flag;
 		firmware-name = "awinic/aw88230_2113_pipa.bin";
+
+		rx_slot = <0>;
+
 	};
 };
 
