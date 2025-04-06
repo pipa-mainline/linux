@@ -285,6 +285,8 @@ static int aw88261_dev_reg_update(struct aw88261 *aw88261, unsigned char *data,
 	struct aw_device *aw_dev = aw88261->aw_pa;
 	struct aw_volume_desc *vol_desc = &aw_dev->volume_desc;
 	unsigned int read_val, efcheck_val, read_vol;
+	struct device_node *np = aw_dev->dev->of_node;
+
 	int data_len, i, ret;
 	int16_t *reg_data;
 	u16 reg_val;
@@ -378,8 +380,10 @@ static int aw88261_dev_reg_update(struct aw88261 *aw88261, unsigned char *data,
 			//reg_val &= ~(0x3 << 0); /* Clear I2S format bits */
 			//reg_val |= (0x1 << 0); /* Set TDM format */
 
-			unsigned char slot_num = aw_dev->channel;
-			slot_num = 0;
+			u32 slot_num = 0;
+
+			of_property_read_u32(np, "rx_slot", &slot_num);
+			// slot_num = 0;
 			reg_val = 0b0101000000000000 | (slot_num << 4) |
 				  (slot_num); // 0b0101_0000_0000_0000;
 			printk("aw88261.c: "
@@ -764,8 +768,8 @@ static struct snd_soc_dai_driver aw88261_dai[] = {
 		.id = 1,
 		.playback = {
 			.stream_name = "Speaker_Playback",
-			.channels_min = 1,
-			.channels_max = 2,
+			.channels_min = 2,
+			.channels_max = 4,
 			.rates = AW88261_RATES,
 			.formats = AW88261_FORMATS,
 		},
