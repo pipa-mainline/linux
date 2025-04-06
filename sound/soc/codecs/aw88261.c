@@ -211,60 +211,6 @@ static int aw88261_dev_check_mode1_pll(struct aw_device *aw_dev)
 	return -EPERM;
 }
 
-// static int aw88261_dev_check_mode2_pll(struct aw_device *aw_dev)
-// {
-// 	unsigned int reg_val;
-// 	int ret, i;
-
-// 	ret = regmap_read(aw_dev->regmap, AW88261_PLLCTRL1_REG, &reg_val);
-// 	if (ret)
-// 		return ret;
-
-// 	// reg_val &= (~AW88261_CCO_MUX_MASK);
-// 	// if (reg_val == AW88261_CCO_MUX_DIVIDED_VALUE) {
-// 	// 	dev_dbg(aw_dev->dev, "CCO_MUX is already divider");
-// 	// 	return -EPERM;
-// 	// }
-
-// 	/* change mode2 */
-// 	ret = regmap_update_bits(aw_dev->regmap, AW88261_PLLCTRL1_REG,
-// 				 ~AW88261_CCO_MUX_MASK,
-// 				 AW88261_CCO_MUX_DIVIDED_VALUE);
-// 	if (ret)
-// 		return ret;
-
-// 	for (i = 0; i < AW88261_DEV_SYSST_CHECK_MAX; i++) {
-// 		ret = aw88261_dev_get_iis_status(aw_dev);
-// 		if (ret) {
-// 			dev_err(aw_dev->dev, "mode2 iis signal check error");
-// 			usleep_range(AW88261_2000_US, AW88261_2000_US + 10);
-// 		} else {
-// 			break;
-// 		}
-// 	}
-
-// 	/* change mode1 */
-// 	ret = regmap_update_bits(aw_dev->regmap, AW88261_PLLCTRL1_REG,
-// 				 ~AW88261_CCO_MUX_MASK,
-// 				 AW88261_CCO_MUX_BYPASS_VALUE);
-// 	if (ret == 0) {
-// 		usleep_range(AW88261_2000_US, AW88261_2000_US + 10);
-// 		for (i = 0; i < AW88261_DEV_SYSST_CHECK_MAX; i++) {
-// 			ret = aw88261_dev_check_mode1_pll(aw_dev);
-// 			if (ret) {
-// 				dev_err(aw_dev->dev,
-// 					"mode2 switch to mode1, iis signal check error");
-// 				usleep_range(AW88261_2000_US,
-// 					     AW88261_2000_US + 10);
-// 			} else {
-// 				break;
-// 			}
-// 		}
-// 	}
-
-// 	return ret;
-// }
-
 static int aw88261_dev_check_syspll(struct aw_device *aw_dev)
 {
 	int ret;
@@ -277,26 +223,6 @@ static int aw88261_dev_check_syspll(struct aw_device *aw_dev)
 			retry_count++;
 		else
 			break;
-
-		// if (ret) {
-		// 	dev_dbg(aw_dev->dev,
-		// 		"mode1 check iis failed try switch to mode2 check (retry: %d)",
-		// 		retry_count);
-		// 	ret = aw88261_dev_check_mode2_pll(aw_dev);
-		// 	if (ret) {
-		// 		dev_err(aw_dev->dev,
-		// 			"mode2 check iis failed (retry: %d)",
-		// 			retry_count);
-		// 		retry_count++;
-		// 		/* Add a longer delay between retries */
-		// 		usleep_range(AW88261_2000_US * 2,
-		// 			     AW88261_2000_US * 2 + 100);
-		// 		continue;
-		// 	}
-		// 	break;
-		// } else {
-		// 	break;
-		// }
 	}
 
 	if (retry_count == max_retries) {
@@ -352,129 +278,6 @@ static void aw88261_dev_uls_hmute(struct aw_device *aw_dev, bool uls_hmute)
 				   ~AW88261_ULS_HMUTE_MASK,
 				   AW88261_ULS_HMUTE_DISABLE_VALUE);
 }
-
-// static void aw88261_reg_force_set(struct aw88261 *aw88261)
-// {
-// 	if (aw88261->frcset_en == AW88261_FRCSET_ENABLE) {
-// 		dev_dbg(aw88261->aw_pa->dev, "it shouldn't be used");
-
-// 		/* set FORCE_PWM */
-// 		regmap_update_bits(aw88261->regmap, AW88261_BSTCTRL3_REG,
-// 				   AW88261_FORCE_PWM_MASK,
-// 				   AW88261_FORCE_PWM_FORCEMINUS_PWM_VALUE);
-// 		/* set BOOST_OS_WIDTH */
-// 		regmap_update_bits(aw88261->regmap, AW88261_BSTCTRL5_REG,
-// 				   AW88261_BST_OS_WIDTH_MASK,
-// 				   AW88261_BST_OS_WIDTH_50NS_VALUE);
-// 		/* set BURST_LOOPR */
-// 		regmap_update_bits(aw88261->regmap, AW88261_BSTCTRL6_REG,
-// 				   AW88261_BST_LOOPR_MASK,
-// 				   AW88261_BST_LOOPR_340K_VALUE);
-// 		/* set RSQN_DLY */
-// 		regmap_update_bits(aw88261->regmap, AW88261_BSTCTRL7_REG,
-// 				   AW88261_RSQN_DLY_MASK,
-// 				   AW88261_RSQN_DLY_35NS_VALUE);
-// 		/* set BURST_SSMODE */
-// 		regmap_update_bits(aw88261->regmap, AW88261_BSTCTRL8_REG,
-// 				   AW88261_BURST_SSMODE_MASK,
-// 				   AW88261_BURST_SSMODE_FAST_VALUE);
-// 		/* set BST_BURST */
-// 		regmap_update_bits(aw88261->regmap, AW88261_BSTCTRL9_REG,
-// 				   AW88261_BST_BURST_MASK,
-// 				   AW88261_BST_BURST_30MA_VALUE);
-// 	} else {
-// 		dev_dbg(aw88261->aw_pa->dev, "needn't set reg value");
-// 	}
-// }
-
-// static int aw88261_dev_get_icalk(struct aw_device *aw_dev, int16_t *icalk)
-// {
-// 	u16 reg_icalk, reg_icalkl;
-// 	unsigned int reg_val;
-// 	int ret;
-
-// 	ret = regmap_read(aw_dev->regmap, AW88261_EFRH4_REG, &reg_val);
-// 	if (ret)
-// 		return ret;
-
-// 	reg_icalk = reg_val & (~AW88261_EF_ISN_GESLP_H_MASK);
-
-// 	ret = regmap_read(aw_dev->regmap, AW88261_EFRL4_REG, &reg_val);
-// 	if (ret)
-// 		return ret;
-
-// 	reg_icalkl = reg_val & (~AW88261_EF_ISN_GESLP_L_MASK);
-
-// 	reg_icalk = (reg_icalk >> AW88261_ICALK_SHIFT) &
-// 		    (reg_icalkl >> AW88261_ICALKL_SHIFT);
-
-// 	if (reg_icalk & (~AW88261_EF_ISN_GESLP_SIGN_MASK))
-// 		reg_icalk = reg_icalk | ~AW88261_EF_ISN_GESLP_NEG;
-
-// 	*icalk = (int16_t)reg_icalk;
-
-// 	return ret;
-// }
-
-// static int aw88261_dev_get_vcalk(struct aw_device *aw_dev, int16_t *vcalk)
-// {
-// 	u16 reg_vcalk, reg_vcalkl;
-// 	unsigned int reg_val;
-// 	int ret;
-
-// 	ret = regmap_read(aw_dev->regmap, AW88261_EFRH3_REG, &reg_val);
-// 	if (ret)
-// 		return ret;
-
-// 	reg_vcalk = (u16)reg_val & (~AW88261_EF_VSN_GESLP_H_MASK);
-
-// 	ret = regmap_read(aw_dev->regmap, AW88261_EFRL3_REG, &reg_val);
-// 	if (ret)
-// 		return ret;
-
-// 	reg_vcalkl = (u16)reg_val & (~AW88261_EF_VSN_GESLP_L_MASK);
-
-// 	reg_vcalk = (reg_vcalk >> AW88261_VCALK_SHIFT) &
-// 		    (reg_vcalkl >> AW88261_VCALKL_SHIFT);
-
-// 	if (reg_vcalk & AW88261_EF_VSN_GESLP_SIGN_MASK)
-// 		reg_vcalk = reg_vcalk | (~AW88261_EF_VSN_GESLP_NEG);
-// 	*vcalk = (int16_t)reg_vcalk;
-
-// 	return ret;
-// }
-
-// static int aw88261_dev_set_vcalb(struct aw_device *aw_dev)
-// {
-// 	int16_t icalk_val, vcalk_val;
-// 	int icalk, vcalk, vcalb;
-// 	u32 reg_val;
-// 	int ret;
-
-// 	ret = aw88261_dev_get_icalk(aw_dev, &icalk_val);
-// 	if (ret)
-// 		return ret;
-
-// 	ret = aw88261_dev_get_vcalk(aw_dev, &vcalk_val);
-// 	if (ret)
-// 		return ret;
-
-// 	icalk = AW88261_CABL_BASE_VALUE + AW88261_ICABLK_FACTOR * icalk_val;
-// 	vcalk = AW88261_CABL_BASE_VALUE + AW88261_VCABLK_FACTOR * vcalk_val;
-// 	if (!vcalk) {
-// 		dev_warn(aw_dev->dev, "vcalk is zero, using default vcalb");
-// 		return 0; // Skip setting but don't return error
-// 	}
-
-// 	vcalb = AW88261_VCAL_FACTOR * icalk / vcalk;
-// 	reg_val = (unsigned int)vcalb;
-
-// 	dev_dbg(aw_dev->dev, "icalk=%d, vcalk=%d, vcalb=%d, reg_val=0x%04x",
-// 		icalk, vcalk, vcalb, reg_val);
-// 	ret = regmap_write(aw_dev->regmap, AW88261_VSNTM1_REG, reg_val);
-
-// 	return ret;
-// }
 
 static int aw88261_dev_reg_update(struct aw88261 *aw88261, unsigned char *data,
 				  unsigned int len)
@@ -571,20 +374,12 @@ static int aw88261_dev_reg_update(struct aw88261 *aw88261, unsigned char *data,
 			//reg_val &= ~(0x3 << 0); /* Clear I2S format bits */
 			//reg_val |= (0x1 << 0); /* Set TDM format */
 
-			reg_val = 0b0101000000000000; // 0b0101_0000_0000_0000;
+			unsigned char slot_num = aw_dev->channel;
+			reg_val = 0b0101000000000000 | (slot_num << 4) |
+				  (slot_num); // 0b0101_0000_0000_0000;
 			dev_dbg(aw_dev->dev,
 				"Setting TDM mode for Xiaomi Pad 6");
 		}
-
-		/*
-		if (reg_addr == AW88261_DBGCTRL_REG) {
-			efcheck_val = reg_val & (~AW88261_EF_DBMD_MASK);
-			if (efcheck_val == AW88261_OR_VALUE)
-				aw88261->efuse_check = AW88261_EF_OR_CHECK;
-			else
-				aw88261->efuse_check = AW88261_EF_AND_CHECK;
-		}
-				*/
 
 		/* i2stxen */
 		if (reg_addr == AW88261_I2SCTRL3_REG) {
@@ -1270,30 +1065,6 @@ static int aw88261_playback_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-// static const struct snd_soc_dapm_widget aw88261_dapm_widgets[] = {
-// 	SND_SOC_DAPM_AIF_IN("AIF_RX_CH0", "Speaker_Playback", 0, SND_SOC_NOPM,
-// 			    0, 0),
-// 	SND_SOC_DAPM_DAC("DAC_CH0", NULL, SND_SOC_NOPM, 0, 0),
-// 	SND_SOC_DAPM_OUTPUT("SPK_OUT_CH0"),
-
-// 	/* Capture Path */
-// 	SND_SOC_DAPM_AIF_OUT("AIF_TX_CH0", "Speaker_Capture", 0, SND_SOC_NOPM,
-// 			     0, 0),
-// 	SND_SOC_DAPM_ADC("ADC_CH0", NULL, SND_SOC_NOPM, 0, 0),
-// 	SND_SOC_DAPM_INPUT("MIC_IN_CH0"),
-
-// };
-
-// static const struct snd_soc_dapm_route aw88261_audio_map[] = {
-// 	{ "AIF_RX_CH0", NULL, "DAC_CH0" }, // Corrected
-// 	{ "DAC_CH0", NULL, "SPK_OUT_CH0" }, // Corrected
-
-// 	/* Capture */
-// 	{ "MIC_IN_CH0", NULL, "ADC_CH0" }, // Corrected
-// 	{ "ADC_CH0", NULL, "AIF_TX_CH0" }, // Corrected
-
-// };
-
 static const struct snd_soc_dapm_widget aw88261_dapm_widgets[] = {
 	/* playback */
 	SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH0", "Speaker_Playback", 0, 0, 0, 0,
@@ -1311,38 +1082,6 @@ static const struct snd_soc_dapm_route aw88261_audio_map[] = {
 	{ "DAC Output CH0", NULL, "AIF_RX_CH0" },
 	{ "AIF_TX_CH0", NULL, "ADC Input CH0" },
 };
-
-// static int aw88261_frcset_check(struct aw88261 *aw88261)
-// {
-// 	unsigned int reg_val;
-// 	u16 temh, teml, tem;
-// 	int ret;
-
-// 	ret = regmap_read(aw88261->regmap, AW88261_EFRH3_REG, &reg_val);
-// 	if (ret)
-// 		return ret;
-// 	temh = ((u16)reg_val & (~AW88261_TEMH_MASK));
-
-// 	ret = regmap_read(aw88261->regmap, AW88261_EFRL3_REG, &reg_val);
-// 	if (ret)
-// 		return ret;
-// 	teml = ((u16)reg_val & (~AW88261_TEML_MASK));
-
-// 	if (aw88261->efuse_check == AW88261_EF_OR_CHECK)
-// 		tem = (temh | teml);
-// 	else
-// 		tem = (temh & teml);
-
-// 	if (tem == AW88261_DEFAULT_CFG)
-// 		aw88261->frcset_en = AW88261_FRCSET_ENABLE;
-// 	else
-// 		aw88261->frcset_en = AW88261_FRCSET_DISABLE;
-
-// 	dev_dbg(aw88261->aw_pa->dev, "tem is 0x%04x, frcset_en is %d", tem,
-// 		aw88261->frcset_en);
-
-// 	return ret;
-// }
 
 static int aw88261_dev_init(struct aw88261 *aw88261,
 			    struct aw_container *aw_cfg)
@@ -1371,12 +1110,6 @@ static int aw88261_dev_init(struct aw88261 *aw88261,
 		dev_err(aw_dev->dev, "fw update failed ret = %d\n", ret);
 		return ret;
 	}
-
-	// ret = aw88261_frcset_check(aw88261);
-	// if (ret) {
-	// 	dev_err(aw_dev->dev, "aw88261_frcset_check ret = %d\n", ret);
-	// 	return ret;
-	// }
 
 	aw88261_dev_clear_int_status(aw_dev);
 

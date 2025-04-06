@@ -52,7 +52,7 @@ static int sm8250_tdm_snd_hw_params(struct snd_pcm_substream *substream,
 	slot_width = 32;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		ret = snd_soc_dai_set_tdm_slot(cpu_dai, 0, 0x03, slots,
+		ret = snd_soc_dai_set_tdm_slot(cpu_dai, 0, 0x0f, slots,
 					       slot_width);
 		if (ret < 0) {
 			dev_err(rtd->dev,
@@ -102,7 +102,7 @@ static int sm8250_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		hw_param_interval(params, SNDRV_PCM_HW_PARAM_CHANNELS);
 
 	rate->min = rate->max = 48000;
-	channels->min = channels->max = 2;
+	channels->min = channels->max = 4;
 
 	return 0;
 }
