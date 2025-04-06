@@ -116,9 +116,9 @@ static void aw88261_dev_pwd(struct aw_device *aw_dev, bool pwd)
 		regmap_update_bits(aw_dev->regmap, AW88261_SYSCTRL_REG,
 				   ~AW88261_PWDN_MASK,
 				   AW88261_PWDN_WORKING_VALUE);
-	printk("aw88261.c: "
-	       "aw88261_dev_pwd: pwd = %d\n",
-	       pwd);
+	// printk("aw88261.c: "
+	//        "aw88261_dev_pwd: pwd = %d\n",
+	//        pwd);
 }
 
 static void aw88261_dev_amppd(struct aw_device *aw_dev, bool amppd)
@@ -133,9 +133,9 @@ static void aw88261_dev_amppd(struct aw_device *aw_dev, bool amppd)
 					 ~AW88261_AMPPD_MASK,
 					 AW88261_AMPPD_WORKING_VALUE);
 
-	printk("aw88261.c: "
-	       "aw88261_dev_amppd: amppd = %d, ret = %d\n",
-	       amppd, ret);
+	// printk("aw88261.c: "
+	//        "aw88261_dev_amppd: amppd = %d, ret = %d\n",
+	//        amppd, ret);
 }
 
 static void aw88261_dev_mute(struct aw_device *aw_dev, bool is_mute)
@@ -290,6 +290,10 @@ static int aw88261_dev_reg_update(struct aw88261 *aw88261, unsigned char *data,
 	u16 reg_val;
 	u8 reg_addr;
 
+	printk("aw88261.c: "
+	       "aw88261_dev_reg_update: len = %d, data = 0x%02x\n",
+	       len, *data);
+
 	if (!len || !data) {
 		dev_err(aw_dev->dev, "reg data is null or len is 0");
 		return -EINVAL;
@@ -332,9 +336,9 @@ static int aw88261_dev_reg_update(struct aw88261 *aw88261, unsigned char *data,
 			continue;
 		}
 
-		printk("aw88261.c: "
-		       "aw88261_dev_reg_update: reg_addr=0x%02x, reg_val=0x%04x, data_len: %d\n",
-		       reg_addr, reg_val, data_len);
+		// printk("aw88261.c: "
+		//        "aw88261_dev_reg_update: reg_addr=0x%02x, reg_val=0x%04x, data_len: %d\n",
+		//        reg_addr, reg_val, data_len);
 
 		if (reg_addr == AW88261_SYSCTRL_REG) {
 			aw88261->amppd_st = reg_val & (~AW88261_AMPPD_MASK);
@@ -375,10 +379,12 @@ static int aw88261_dev_reg_update(struct aw88261 *aw88261, unsigned char *data,
 			//reg_val |= (0x1 << 0); /* Set TDM format */
 
 			unsigned char slot_num = aw_dev->channel;
+			slot_num = 0;
 			reg_val = 0b0101000000000000 | (slot_num << 4) |
 				  (slot_num); // 0b0101_0000_0000_0000;
-			dev_dbg(aw_dev->dev,
-				"Setting TDM mode for Xiaomi Pad 6");
+			printk("aw88261.c: "
+			       "Setting TDM mode for Xiaomi Pad 6, channel: %d",
+			       slot_num);
 		}
 
 		/* i2stxen */
@@ -758,15 +764,15 @@ static struct snd_soc_dai_driver aw88261_dai[] = {
 		.id = 1,
 		.playback = {
 			.stream_name = "Speaker_Playback",
-			.channels_min = 4,
-			.channels_max = 4,
+			.channels_min = 1,
+			.channels_max = 2,
 			.rates = AW88261_RATES,
 			.formats = AW88261_FORMATS,
 		},
 		.capture = {
 			.stream_name = "Speaker_Capture",
-			.channels_min = 4,
-			.channels_max = 4,
+			.channels_min = 1,
+			.channels_max = 2,
 			.rates = AW88261_RATES,
 			.formats = AW88261_FORMATS,
 		},
@@ -1067,20 +1073,20 @@ static int aw88261_playback_event(struct snd_soc_dapm_widget *w,
 
 static const struct snd_soc_dapm_widget aw88261_dapm_widgets[] = {
 	/* playback */
-	SND_SOC_DAPM_AIF_IN_E("AIF_RX_CH0", "Speaker_Playback", 0, 0, 0, 0,
+	SND_SOC_DAPM_AIF_IN_E("AIF_RX", "Speaker_Playback", 0, 0, 0, 0,
 			      aw88261_playback_event,
 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_OUTPUT("DAC Output CH0"),
+	SND_SOC_DAPM_OUTPUT("DAC Output"),
 
 	/* capture */
-	SND_SOC_DAPM_AIF_OUT("AIF_TX_CH0", "Speaker_Capture", 0, SND_SOC_NOPM,
-			     0, 0),
-	SND_SOC_DAPM_INPUT("ADC Input CH0"),
+	SND_SOC_DAPM_AIF_OUT("AIF_TX", "Speaker_Capture", 0, SND_SOC_NOPM, 0,
+			     0),
+	SND_SOC_DAPM_INPUT("ADC Input"),
 };
 
 static const struct snd_soc_dapm_route aw88261_audio_map[] = {
-	{ "DAC Output CH0", NULL, "AIF_RX_CH0" },
-	{ "AIF_TX_CH0", NULL, "ADC Input CH0" },
+	{ "DAC Output", NULL, "AIF_RX" },
+	{ "AIF_TX", NULL, "ADC Input" },
 };
 
 static int aw88261_dev_init(struct aw88261 *aw88261,

@@ -852,7 +852,6 @@
 		compatible = "awinic,aw88261";
 		status = "okay";
 		reg = <0x34>;
-		rx_slot = <0>;
 		tx_slot = <5>;
 		#sound-dai-cells = <0>;
 		reset-gpios = <&tlmm 6 GPIO_ACTIVE_HIGH>;
