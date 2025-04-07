@@ -1417,9 +1417,16 @@ static const struct i2c_device_id aw88261_i2c_id[] = { { AW88261_I2C_NAME },
 						       {} };
 MODULE_DEVICE_TABLE(i2c, aw88261_i2c_id);
 
+static const struct of_device_id aw88261_match_table[] = {
+	{ .compatible = "awinic,aw88261" },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, aw88261_match_table);
+
 static struct i2c_driver aw88261_i2c_driver = {
 	.driver = {
 		.name = AW88261_I2C_NAME,
+		.of_match_table = aw88261_match_table,
 	},
 	.probe = aw88261_i2c_probe,
 	.id_table = aw88261_i2c_id,
