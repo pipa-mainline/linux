@@ -372,8 +372,10 @@
 
 #define AW88261_I2C_NAME		"aw88261"
 
-#define AW88261_RATES (SNDRV_PCM_RATE_8000_48000 | \
+// #define AW88261_RATES (SNDRV_PCM_RATE_8000_48000 | \
 			SNDRV_PCM_RATE_96000)
+#define AW88261_RATES SNDRV_PCM_RATE_48000
+
 #define AW88261_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | \
 			SNDRV_PCM_FMTBIT_S24_LE | \
 			SNDRV_PCM_FMTBIT_S32_LE)
@@ -448,10 +450,14 @@ struct aw88261 {
 	struct regmap *regmap;
 	struct aw_container *aw_cfg;
 
+	const char *fw_name;
+
 	int efuse_check;
 	int frcset_en;
 	unsigned int mute_st;
 	unsigned int amppd_st;
+
+	int sysclk;
 
 	bool phase_sync;
 };
