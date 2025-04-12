@@ -638,7 +638,6 @@ static int aw88261_dai_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 {
 	struct aw88261 *aw88261 = snd_soc_component_get_drvdata(dai->component);
 
-	// TODO Maybe it is needed to send params here but idk XD
 	dev_info(aw88261->aw_pa->dev, "fmt = 0x%x\n", fmt);
 
 	return 0;
@@ -703,15 +702,15 @@ static struct snd_soc_dai_driver aw88261_dai[] = {
 		.id = 1,
 		.playback = {
 			.stream_name = "Speaker_Playback",
-			.channels_min = 2,
-			.channels_max = 4,
+			.channels_min = 1,
+			.channels_max = 1,
 			.rates = AW88261_RATES,
 			.formats = AW88261_FORMATS,
 		},
 		.capture = {
 			.stream_name = "Speaker_Capture",
 			.channels_min = 1,
-			.channels_max = 2,
+			.channels_max = 1,
 			.rates = AW88261_RATES,
 			.formats = AW88261_FORMATS,
 		},
@@ -1131,8 +1130,6 @@ static int aw88261_codec_probe(struct snd_soc_component *component)
 
 	/* add route with unique widget names */
 
-	// TODO CHECK THAT
-	// ret = aw88261_create_unique_routes(aw88261, dapm);
 	ret = snd_soc_dapm_add_routes(dapm, aw88261_audio_map,
 							ARRAY_SIZE(aw88261_audio_map));
 	dev_info(component->dev, "Route return status: %d\n", ret);

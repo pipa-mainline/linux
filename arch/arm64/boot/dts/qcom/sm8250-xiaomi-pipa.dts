@@ -1014,9 +1014,6 @@
 		qcom,tdm-invert-sync = <0>;   /* Don't invert sync for AW88261 */
 		qcom,tdm-data-delay = <1>;    /* 1-bit data delay for proper alignment */
 		qcom,tdm-data-align = <0>;    /* No special alignment needed */
-		// qcom,tdm-slots = <8>;         /* Use 8 slots for quad-speaker */
-		// qcom,tdm-slot-width = <32>;   /* 32-bit slot width */
-		// qcom,tdm-slot-mask = <0x0F>;  /* Enable slots 0-3 for quad-speaker */
 	};
 };
 
