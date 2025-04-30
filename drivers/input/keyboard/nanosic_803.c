@@ -256,6 +256,22 @@ int nanosic_i2c_write(struct nanosic_803_priv *nanosic_dev, void *buf, size_t le
 	return len;
 }
 
+void nanosic_handle_hall(struct nanosic_803_priv *nanosic_dev, char *buf) {
+	dev_err(nanosic_dev->dev, buf);
+	
+	if (buf[5] == 0x38 && buf[6] == 0x80 && buf[7] == 0xa2) {
+		if (buf[12] == 0x23) {
+			printk("Reg devices");
+			input_register_device(nanosic_dev->keyboard_input_dev);
+			input_register_device(nanosic_dev->touchpad_input_dev);
+		} else if (buf[12] == 0x0) {
+			printk("Unreg devices");
+			input_unregister_device(nanosic_dev->keyboard_input_dev);
+			input_unregister_device(nanosic_dev->touchpad_input_dev);
+		}
+	}
+}
+
 void handle_modifiers(struct nanosic_803_priv *nanosic_dev, char modifiers) {
 	char last_modifiers = nanosic_dev->last_modifier_state;
 
@@ -400,13 +416,20 @@ static irqreturn_t nanosic_irq_handler(int irq, void *dev_id) {
 		return IRQ_HANDLED;
 	}
 
-	// Keyboard event
-	if(buf[3] == 0x05) {
-		nanosic_handle_keyboard(nanosic_dev, buf);
-	}
-	// Touchpad event
-	else if(buf[3] == 0x19) {
-		nanosic_handle_touchpad_mt(nanosic_dev, buf);
+	switch (buf[3]) {
+		case 0x05:
+			// Handle keyboard event
+			nanosic_handle_keyboard(nanosic_dev, buf);
+			break;
+		case 0x19:
+			// Handle touchpad event
+			nanosic_handle_touchpad_mt(nanosic_dev, buf);
+			break;
+		case 0x23:
+			// Handle hall event
+			dev_err(nanosic_dev->dev, hex_dump);
+			nanosic_handle_hall(nanosic_dev, buf);
+			break;
 	}
 	return IRQ_HANDLED;
 }
@@ -567,12 +590,6 @@ static int nanosic_803_probe(struct i2c_client *client)
 		set_bit(i, keyboard_input_dev->keybit);
 	}
 
-	ret = input_register_device(keyboard_input_dev);
-	if (ret) {
-		pr_err("Failed to register keyboard_input_dev device: %d\n", ret);
-		return ret;
-	}
-
 	// Set up touhpad input device
 	touchpad_dev = devm_input_allocate_device(dev);
 	if (!touchpad_dev) {
@@ -586,7 +603,7 @@ static int nanosic_803_probe(struct i2c_client *client)
 	touchpad_dev->id.vendor = 0x1234;
 	touchpad_dev->id.product = 0x5678;
 	touchpad_dev->id.version = 0x0001;
-
+	
 	ret = input_mt_init_slots(touchpad_dev, 3, INPUT_MT_POINTER);
 	if (ret) {
 		dev_err(dev, "Failed to initialize MT slots: %d\n", ret);
@@ -603,13 +620,6 @@ static int nanosic_803_probe(struct i2c_client *client)
 	set_bit(BTN_RIGHT, touchpad_dev->keybit);
 
 	input_set_drvdata(touchpad_dev, nanosic_dev);
-
-	ret = input_register_device(touchpad_dev);
-	if (ret) {
-		pr_err("Failed to register touchpad input device\n");
-		input_free_device(touchpad_dev);
-		return ret;
-	}
 
 	// Set up regmap
 	map = devm_regmap_init_i2c(client, &nanosic_803_regmap_config);
@@ -631,6 +641,9 @@ static int nanosic_803_probe(struct i2c_client *client)
 		dev_err(dev, "Nanosic 803 not found\n");
 		return -ENODEV;
 	}
+
+	printk("Hello World!");
+	mdelay(60000);
 
 	// Set up irq
 	nanosic_dev->irq_number = gpiod_to_irq(nanosic_dev->irq_gpio);

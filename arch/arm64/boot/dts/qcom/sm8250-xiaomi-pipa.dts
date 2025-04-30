@@ -40,13 +40,16 @@
 	qcom,board-id = <0x34 0>;
 
 	aliases {
-		serial0 = &uart6;
+		serial0 = &uart12;
+		serial1 = &uart6;
 	};
 
 	chosen {
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+
+		stdout-path = "serial0:115200n8";
 
 		framebuffer: framebuffer@9c000000 {
 			compatible = "simple-framebuffer";
@@ -57,6 +60,7 @@
 			format = "a8r8g8b8";
 		};
 	};
+
 	i2c@0 {
 		compatible = "i2c-gpio";
 		sda-gpios = <&tlmm  115 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
@@ -78,6 +82,7 @@
 			vdd_3v3-supply = <&vreg_l10c_3p3>;
 		};
 	};
+
 	battery: battery {
 		compatible = "simple-battery";
 		charge-full-design-microamp-hours = <8840000>;
@@ -1531,6 +1536,10 @@ bq2597x_master_int_default: bq2597x-master-int-default {
 		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
 		vddrfa1p7-supply = <&vreg_pmu_rfa_1p7>;
 	};
+};
+
+&uart12 {
+	status = "okay";
 };
 
 &usb_1 {
