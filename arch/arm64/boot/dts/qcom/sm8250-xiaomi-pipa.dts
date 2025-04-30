@@ -132,6 +132,7 @@
 		enable-active-high;
 		regulator-boot-on;
 	};
+
 	camera_wide_vana: camera-wide-vana-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "camera_front_vana";
@@ -158,6 +159,23 @@
 		enable-active-high;
 
 		gpio = <&tlmm 84 GPIO_ACTIVE_HIGH>;
+
+		vin-supply = <&vreg_bob>;
+	};
+
+	usb_uart: usb-uart-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_uart";
+
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+
+		regulator-enable-ramp-delay = <135>;
+		enable-active-high;
+
+		gpio = <&tlmm 23 GPIO_ACTIVE_HIGH>;
+
+		regulator-always-on;
 
 		vin-supply = <&vreg_bob>;
 	};
