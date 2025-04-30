@@ -122,6 +122,8 @@ struct nanosic_803_priv {
 	struct gpio_desc	*sleep_gpio;
 	struct gpio_desc	*vdd_gpio;
 	struct gpio_desc	*irq_gpio;
+	struct workqueue_struct	*wq;
+	struct work_struct 	offload;
 	unsigned int 		irq_number;
 	struct mutex 		read_mutex;
 	char			last_pressed_key[5];
@@ -129,6 +131,7 @@ struct nanosic_803_priv {
 	int 			slot_mapping[3];
 	struct timer_list	finger_timer;
 	bool 			finger_down;
+	bool            is_connected;
 	unsigned long		last_touch_time;
 	int 			last_x, last_y;
 	struct regulator	*vdd_1v8;
@@ -256,6 +259,22 @@ int nanosic_i2c_write(struct nanosic_803_priv *nanosic_dev, void *buf, size_t le
 	return len;
 }
 
+void nanosic_handle_hall(struct nanosic_803_priv *nanosic_dev, char *buf) {
+	if (buf[5] == 0x38 && buf[6] == 0x80 && buf[7] == 0xa2) {
+		bool was_connected = nanosic_dev->is_connected;
+		if (buf[12] == 0x23) {
+			printk("Unreg devices");
+			nanosic_dev->is_connected = true;
+		} else if (buf[12] == 0x0) {
+			printk("Reg devices");
+			nanosic_dev->is_connected = false;
+		}
+		if (nanosic_dev->is_connected != was_connected) {
+			queue_work(nanosic_dev->wq, &nanosic_dev->offload);
+		}
+	}
+}
+
 void handle_modifiers(struct nanosic_803_priv *nanosic_dev, char modifiers) {
 	char last_modifiers = nanosic_dev->last_modifier_state;
 
@@ -376,41 +395,6 @@ void nanosic_handle_touchpad_mt(struct nanosic_803_priv *nanosic_dev, char *buf)
 	mod_timer(&nanosic_dev->finger_timer, jiffies + msecs_to_jiffies(TOUCH_TIMEOUT_MS));
 }
 
-static irqreturn_t nanosic_irq_handler(int irq, void *dev_id) {
-	struct nanosic_803_priv *nanosic_dev = dev_id;
-	int ret;
-	char buf[I2C_DATA_LENGTH_READ] = { 0 };
-	char hex_dump[3 * I2C_DATA_LENGTH_READ + 1] = { 0 };
-
-	mutex_lock(&nanosic_dev->read_mutex);
-	ret = nanosic_i2c_read(nanosic_dev, buf, sizeof(buf));
-	mutex_unlock(&nanosic_dev->read_mutex);
-	if(ret == 0) {
-		dev_err(nanosic_dev->dev, "Failed to read data on interrupt: %d\n", ret);
-		return IRQ_HANDLED;
-	}
-	for (int i = 0; i < ret; i++) {
-		snprintf(&hex_dump[i * 3], 4, "%02x ", buf[i]);
-	}
-	dev_dbg(nanosic_dev->dev, "nanosic message: %s\n", hex_dump);
-
-	if(buf[0] != 0x57 || buf[2] == 0) {
-		dev_err(nanosic_dev->dev, "Malformed message\n");
-		// Our hardware might randomly return no meesage/random data, so assume we hanfled irq correctly
-		return IRQ_HANDLED;
-	}
-
-	// Keyboard event
-	if(buf[3] == 0x05) {
-		nanosic_handle_keyboard(nanosic_dev, buf);
-	}
-	// Touchpad event
-	else if(buf[3] == 0x19) {
-		nanosic_handle_touchpad_mt(nanosic_dev, buf);
-	}
-	return IRQ_HANDLED;
-}
-
 int nanosic_set_caps_led(struct nanosic_803_priv *nanosic_dev, bool enable)
 {
 	int i = 0, ret = 0;
@@ -445,6 +429,89 @@ static int nanosic_event(struct input_dev *dev, unsigned int type, unsigned int 
 	return 0;
 }
 
+static void device_connect_handler(struct work_struct *work)
+{
+	struct nanosic_803_priv *nanosic_dev;
+	struct input_dev *keyboard_input_dev;
+	nanosic_dev = container_of(work, struct nanosic_803_priv, offload);
+	if (nanosic_dev->is_connected) {
+		keyboard_input_dev = devm_input_allocate_device(nanosic_dev->dev);
+		if (!keyboard_input_dev) {
+			dev_err(nanosic_dev->dev, "could not allocate keyboard input device: %d\n", -ENOMEM);
+			return;
+		}
+		keyboard_input_dev->name = "Nanosic 803 keyboard";
+		keyboard_input_dev->phys = "input/keyboard";
+		keyboard_input_dev->id.bustype = BUS_I2C;
+		keyboard_input_dev->id.vendor = 0x1234;
+		keyboard_input_dev->id.product = 0x5678;
+		keyboard_input_dev->id.version = 0x0100;
+
+		set_bit(EV_KEY, keyboard_input_dev->evbit);
+		set_bit(EV_REP, keyboard_input_dev->evbit);
+
+		keyboard_input_dev->evbit[0] |= BIT_MASK(EV_LED) |  BIT_MASK(EV_KEY) | BIT_MASK(EV_REP);
+		keyboard_input_dev->ledbit[0] = BIT_MASK(LED_CAPSL);
+		keyboard_input_dev->event = nanosic_event;
+
+		input_set_drvdata(keyboard_input_dev, nanosic_dev);
+
+		for (int i = 0; i < KEY_MAX; i++) {
+			set_bit(i, keyboard_input_dev->keybit);
+		}
+		nanosic_dev->keyboard_input_dev = keyboard_input_dev;
+		input_register_device(nanosic_dev->keyboard_input_dev);
+	} else {
+		input_unregister_device(nanosic_dev->keyboard_input_dev);
+	}
+}
+
+static irqreturn_t nanosic_irq_handler(int irq, void *dev_id) {
+	struct nanosic_803_priv *nanosic_dev = dev_id;
+	int ret;
+	char buf[I2C_DATA_LENGTH_READ] = { 0 };
+	char hex_dump[3 * I2C_DATA_LENGTH_READ + 1] = { 0 };
+
+	mutex_lock(&nanosic_dev->read_mutex);
+	ret = nanosic_i2c_read(nanosic_dev, buf, sizeof(buf));
+	mutex_unlock(&nanosic_dev->read_mutex);
+	if(ret == 0) {
+		dev_err(nanosic_dev->dev, "Failed to read data on interrupt: %d\n", ret);
+		return IRQ_HANDLED;
+	}
+	for (int i = 0; i < ret; i++) {
+		snprintf(&hex_dump[i * 3], 4, "%02x ", buf[i]);
+	}
+	dev_dbg(nanosic_dev->dev, "nanosic message: %s\n", hex_dump);
+
+	if(buf[0] != 0x57 || buf[2] == 0) {
+		dev_err(nanosic_dev->dev, "Malformed message\n");
+		// Our hardware might randomly return no meesage/random data, so assume we hanfled irq correctly
+		return IRQ_HANDLED;
+	}
+
+	switch (buf[3]) {
+		case 0x05:
+			// Handle keyboard event
+			nanosic_handle_keyboard(nanosic_dev, buf);
+			break;
+		case 0x19:
+			// Handle touchpad event
+			nanosic_handle_touchpad_mt(nanosic_dev, buf);
+			break;
+		case 0x23:
+			// Handle hall event
+			dev_err(nanosic_dev->dev, buf);
+			nanosic_handle_hall(nanosic_dev, buf);
+			break;
+	}
+	return IRQ_HANDLED;
+}
+
+
+
+
+
 void nanosic_803_reset(struct nanosic_803_priv *nanosic_dev)
 {
 	gpiod_set_value(nanosic_dev->reset_gpio, 0);
@@ -460,7 +527,6 @@ void nanosic_803_reset(struct nanosic_803_priv *nanosic_dev)
 static int nanosic_803_probe(struct i2c_client *client)
 {
 	struct nanosic_803_priv *nanosic_dev;
-	struct input_dev *keyboard_input_dev;
 	struct input_dev *touchpad_dev;
 	struct device *dev = &client->dev;
 	struct regmap *map;
@@ -473,6 +539,11 @@ static int nanosic_803_probe(struct i2c_client *client)
 
 	nanosic_dev->dev = dev;
 	dev_set_drvdata(dev, nanosic_dev);
+
+	printk("Starting creating singlethread...");
+	nanosic_dev->wq = create_singlethread_workqueue("nanosic_connect_wq");
+	printk("Init work...");
+	INIT_WORK(&nanosic_dev->offload, device_connect_handler);
 
 	// Get GPIOs
 	nanosic_dev->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
@@ -542,37 +613,6 @@ static int nanosic_803_probe(struct i2c_client *client)
 	// Wake up the chip
 	nanosic_803_wakeup(nanosic_dev);
 
-	// Setup keyboard input
-	keyboard_input_dev = devm_input_allocate_device(dev);
-	if (!keyboard_input_dev)
-		return -ENOMEM;
-
-	keyboard_input_dev->name = "Nanosic 803 keyboard";
-	keyboard_input_dev->phys = "input/keyboard";
-	keyboard_input_dev->id.bustype = BUS_I2C;
-	keyboard_input_dev->id.vendor = 0x1234;
-	keyboard_input_dev->id.product = 0x5678;
-	keyboard_input_dev->id.version = 0x0100;
-
-	set_bit(EV_KEY, keyboard_input_dev->evbit);
-	set_bit(EV_REP, keyboard_input_dev->evbit);
-
-	keyboard_input_dev->evbit[0] |= BIT_MASK(EV_LED) |  BIT_MASK(EV_KEY) | BIT_MASK(EV_REP);
-	keyboard_input_dev->ledbit[0] = BIT_MASK(LED_CAPSL);
-	keyboard_input_dev->event = nanosic_event;
-
-	input_set_drvdata(keyboard_input_dev, nanosic_dev);
-
-	for (int i = 0; i < KEY_MAX; i++) {
-		set_bit(i, keyboard_input_dev->keybit);
-	}
-
-	ret = input_register_device(keyboard_input_dev);
-	if (ret) {
-		pr_err("Failed to register keyboard_input_dev device: %d\n", ret);
-		return ret;
-	}
-
 	// Set up touhpad input device
 	touchpad_dev = devm_input_allocate_device(dev);
 	if (!touchpad_dev) {
@@ -604,20 +644,12 @@ static int nanosic_803_probe(struct i2c_client *client)
 
 	input_set_drvdata(touchpad_dev, nanosic_dev);
 
-	ret = input_register_device(touchpad_dev);
-	if (ret) {
-		pr_err("Failed to register touchpad input device\n");
-		input_free_device(touchpad_dev);
-		return ret;
-	}
-
 	// Set up regmap
 	map = devm_regmap_init_i2c(client, &nanosic_803_regmap_config);
 	if (IS_ERR(map))
 		return PTR_ERR(map);
 
 	nanosic_dev->client = client;
-	nanosic_dev->keyboard_input_dev = keyboard_input_dev;
 	nanosic_dev->touchpad_input_dev = touchpad_dev;
 	nanosic_dev->regmap = map;
 
@@ -654,6 +686,7 @@ static int nanosic_803_probe(struct i2c_client *client)
 
 	timer_setup(&nanosic_dev->finger_timer, nanosic_touch_timer_callback, 0);
 	nanosic_dev->finger_down = false;
+	nanosic_dev->is_connected = false;
 	return 0;
 }
 
