@@ -122,6 +122,8 @@ struct nanosic_803_priv {
 	struct gpio_desc	*sleep_gpio;
 	struct gpio_desc	*vdd_gpio;
 	struct gpio_desc	*irq_gpio;
+	struct workqueue_struct	*wq;
+	struct work_struct 	offload;
 	unsigned int 		irq_number;
 	struct mutex 		read_mutex;
 	char			last_pressed_key[5];
@@ -129,6 +131,7 @@ struct nanosic_803_priv {
 	int 			slot_mapping[3];
 	struct timer_list	finger_timer;
 	bool 			finger_down;
+	bool            is_connected;
 	unsigned long		last_touch_time;
 	int 			last_x, last_y;
 	struct regulator	*vdd_1v8;
@@ -257,18 +260,15 @@ int nanosic_i2c_write(struct nanosic_803_priv *nanosic_dev, void *buf, size_t le
 }
 
 void nanosic_handle_hall(struct nanosic_803_priv *nanosic_dev, char *buf) {
-	dev_err(nanosic_dev->dev, buf);
-	
 	if (buf[5] == 0x38 && buf[6] == 0x80 && buf[7] == 0xa2) {
 		if (buf[12] == 0x23) {
-			printk("Reg devices");
-			input_register_device(nanosic_dev->keyboard_input_dev);
-			input_register_device(nanosic_dev->touchpad_input_dev);
-		} else if (buf[12] == 0x0) {
 			printk("Unreg devices");
-			input_unregister_device(nanosic_dev->keyboard_input_dev);
-			input_unregister_device(nanosic_dev->touchpad_input_dev);
+			nanosic_dev->is_connected = false;
+		} else if (buf[12] == 0x0) {
+			printk("Reg devices");
+			nanosic_dev->is_connected = true;
 		}
+		queue_work(nanosic_dev->wq, &nanosic_dev->offload);
 	}
 }
 
@@ -392,6 +392,16 @@ void nanosic_handle_touchpad_mt(struct nanosic_803_priv *nanosic_dev, char *buf)
 	mod_timer(&nanosic_dev->finger_timer, jiffies + msecs_to_jiffies(TOUCH_TIMEOUT_MS));
 }
 
+static void device_connect_handler(struct work_struct *work) {
+	struct nanosic_803_priv *nanosic_dev;
+	nanosic_dev = container_of(work, struct nanosic_803_priv, offload);
+	if (nanosic_dev->is_connected) {
+		input_register_device(nanosic_dev->keyboard_input_dev);
+	} else {
+		input_unregister_device(nanosic_dev->keyboard_input_dev);
+	}
+}
+
 static irqreturn_t nanosic_irq_handler(int irq, void *dev_id) {
 	struct nanosic_803_priv *nanosic_dev = dev_id;
 	int ret;
@@ -427,12 +437,14 @@ static irqreturn_t nanosic_irq_handler(int irq, void *dev_id) {
 			break;
 		case 0x23:
 			// Handle hall event
-			dev_err(nanosic_dev->dev, hex_dump);
+			dev_err(nanosic_dev->dev, buf);
 			nanosic_handle_hall(nanosic_dev, buf);
 			break;
 	}
 	return IRQ_HANDLED;
 }
+
+
 
 int nanosic_set_caps_led(struct nanosic_803_priv *nanosic_dev, bool enable)
 {
@@ -489,6 +501,11 @@ static int nanosic_803_probe(struct i2c_client *client)
 	struct regmap *map;
 	unsigned int ret, i;
 	unsigned int touchpad_resolution_x, touchpad_resolution_y;
+
+	printk("Starting creating singlethread...");
+	nanosic_dev->wq = create_singlethread_workqueue("nanosic_connect_wq");
+	printk("Init work...");
+	INIT_WORK(&nanosic_dev->offload, device_connect_handler);
 
 	nanosic_dev = devm_kzalloc(dev, sizeof(*nanosic_dev), GFP_KERNEL);
 	if (!nanosic_dev)
@@ -642,9 +659,6 @@ static int nanosic_803_probe(struct i2c_client *client)
 		return -ENODEV;
 	}
 
-	printk("Hello World!");
-	mdelay(60000);
-
 	// Set up irq
 	nanosic_dev->irq_number = gpiod_to_irq(nanosic_dev->irq_gpio);
 	if (nanosic_dev->irq_number < 0) {
@@ -667,6 +681,7 @@ static int nanosic_803_probe(struct i2c_client *client)
 
 	timer_setup(&nanosic_dev->finger_timer, nanosic_touch_timer_callback, 0);
 	nanosic_dev->finger_down = false;
+	nanosic_dev->is_connected = false;
 	return 0;
 }
 
