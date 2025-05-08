@@ -261,6 +261,7 @@ int nanosic_i2c_write(struct nanosic_803_priv *nanosic_dev, void *buf, size_t le
 
 void nanosic_handle_hall(struct nanosic_803_priv *nanosic_dev, char *buf) {
 	if (buf[5] == 0x38 && buf[6] == 0x80 && buf[7] == 0xa2) {
+		bool was_connected = nanosic_dev->is_connected;
 		if (buf[12] == 0x23) {
 			printk("Reg devices");
 			nanosic_dev->is_connected = true;
@@ -268,7 +269,9 @@ void nanosic_handle_hall(struct nanosic_803_priv *nanosic_dev, char *buf) {
 			printk("Unreg devices");
 			nanosic_dev->is_connected = false;
 		}
-		queue_work(nanosic_dev->wq, &nanosic_dev->offload);
+		if (nanosic_dev->is_connected != was_connected) {
+			queue_work(nanosic_dev->wq, &nanosic_dev->offload);
+		}
 	}
 }
 
