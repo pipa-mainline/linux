@@ -395,10 +395,70 @@ void nanosic_handle_touchpad_mt(struct nanosic_803_priv *nanosic_dev, char *buf)
 	mod_timer(&nanosic_dev->finger_timer, jiffies + msecs_to_jiffies(TOUCH_TIMEOUT_MS));
 }
 
+int nanosic_set_caps_led(struct nanosic_803_priv *nanosic_dev, bool enable)
+{
+	int i = 0, ret = 0;
+	dev_dbg(nanosic_dev->dev, "Going to set caps led: %d\n", enable);
+	char cmd[I2C_DATA_LENGTH_WRITE] = { 0x32, 0x00, 0x4E, 0x31,
+					    0x80, 0x38, 0x26, 0x01, enable};
+
+	for (i = 2; i < 9; i++) {
+		cmd[9] += cmd[i];
+	} /*cal sum*/
+	ret = nanosic_i2c_write(nanosic_dev, cmd, sizeof(cmd));
+
+	return ret;
+}
+
+static int nanosic_event(struct input_dev *dev, unsigned int type, unsigned int code, int value)
+{
+	struct nanosic_803_priv *nanosic_dev = input_get_drvdata(dev);
+	dev_dbg(nanosic_dev->dev, "nanosic_event type: %ld, code: %ld, value: %ld\n", type, code, value);
+	if (!nanosic_dev)
+		return -EINVAL;
+
+	if (type == EV_LED) {
+		switch (code) {
+			case LED_CAPSL:
+				nanosic_set_caps_led(nanosic_dev ,value);
+				break;
+			default:
+				break;
+		}
+	}
+	return 0;
+}
+
 static void device_connect_handler(struct work_struct *work) {
 	struct nanosic_803_priv *nanosic_dev;
+	struct input_dev *keyboard_input_dev;
 	nanosic_dev = container_of(work, struct nanosic_803_priv, offload);
 	if (nanosic_dev->is_connected) {
+		keyboard_input_dev = devm_input_allocate_device(nanosic_dev->dev);
+		if (!keyboard_input_dev) {
+			dev_err(nanosic_dev->dev, "Failed to allocate input device: %d\n", -ENOMEM);
+			return;
+		}
+		keyboard_input_dev->name = "Nanosic 803 keyboard";
+		keyboard_input_dev->phys = "input/keyboard";
+		keyboard_input_dev->id.bustype = BUS_I2C;
+		keyboard_input_dev->id.vendor = 0x1234;
+		keyboard_input_dev->id.product = 0x5678;
+		keyboard_input_dev->id.version = 0x0100;
+
+		set_bit(EV_KEY, keyboard_input_dev->evbit);
+		set_bit(EV_REP, keyboard_input_dev->evbit);
+
+		keyboard_input_dev->evbit[0] |= BIT_MASK(EV_LED) |  BIT_MASK(EV_KEY) | BIT_MASK(EV_REP);
+		keyboard_input_dev->ledbit[0] = BIT_MASK(LED_CAPSL);
+		keyboard_input_dev->event = nanosic_event;
+
+		input_set_drvdata(keyboard_input_dev, nanosic_dev);
+
+		for (int i = 0; i < KEY_MAX; i++) {
+			set_bit(i, keyboard_input_dev->keybit);
+		}
+		nanosic_dev->keyboard_input_dev = keyboard_input_dev;
 		input_register_device(nanosic_dev->keyboard_input_dev);
 	} else {
 		input_unregister_device(nanosic_dev->keyboard_input_dev);
@@ -449,39 +509,7 @@ static irqreturn_t nanosic_irq_handler(int irq, void *dev_id) {
 
 
 
-int nanosic_set_caps_led(struct nanosic_803_priv *nanosic_dev, bool enable)
-{
-	int i = 0, ret = 0;
-	dev_dbg(nanosic_dev->dev, "Going to set caps led: %d\n", enable);
-	char cmd[I2C_DATA_LENGTH_WRITE] = { 0x32, 0x00, 0x4E, 0x31,
-					    0x80, 0x38, 0x26, 0x01, enable};
 
-	for (i = 2; i < 9; i++) {
-		cmd[9] += cmd[i];
-	} /*cal sum*/
-	ret = nanosic_i2c_write(nanosic_dev, cmd, sizeof(cmd));
-
-	return ret;
-}
-
-static int nanosic_event(struct input_dev *dev, unsigned int type, unsigned int code, int value)
-{
-	struct nanosic_803_priv *nanosic_dev = input_get_drvdata(dev);
-	dev_dbg(nanosic_dev->dev, "nanosic_event type: %ld, code: %ld, value: %ld\n", type, code, value);
-	if (!nanosic_dev)
-		return -EINVAL;
-
-	if (type == EV_LED) {
-		switch (code) {
-			case LED_CAPSL:
-				nanosic_set_caps_led(nanosic_dev ,value);
-				break;
-			default:
-				break;
-		}
-	}
-	return 0;
-}
 
 void nanosic_803_reset(struct nanosic_803_priv *nanosic_dev)
 {
@@ -498,7 +526,6 @@ void nanosic_803_reset(struct nanosic_803_priv *nanosic_dev)
 static int nanosic_803_probe(struct i2c_client *client)
 {
 	struct nanosic_803_priv *nanosic_dev;
-	struct input_dev *keyboard_input_dev;
 	struct input_dev *touchpad_dev;
 	struct device *dev = &client->dev;
 	struct regmap *map;
@@ -585,31 +612,6 @@ static int nanosic_803_probe(struct i2c_client *client)
 	// Wake up the chip
 	nanosic_803_wakeup(nanosic_dev);
 
-	// Setup keyboard input
-	keyboard_input_dev = devm_input_allocate_device(dev);
-	if (!keyboard_input_dev)
-		return -ENOMEM;
-
-	keyboard_input_dev->name = "Nanosic 803 keyboard";
-	keyboard_input_dev->phys = "input/keyboard";
-	keyboard_input_dev->id.bustype = BUS_I2C;
-	keyboard_input_dev->id.vendor = 0x1234;
-	keyboard_input_dev->id.product = 0x5678;
-	keyboard_input_dev->id.version = 0x0100;
-
-	set_bit(EV_KEY, keyboard_input_dev->evbit);
-	set_bit(EV_REP, keyboard_input_dev->evbit);
-
-	keyboard_input_dev->evbit[0] |= BIT_MASK(EV_LED) |  BIT_MASK(EV_KEY) | BIT_MASK(EV_REP);
-	keyboard_input_dev->ledbit[0] = BIT_MASK(LED_CAPSL);
-	keyboard_input_dev->event = nanosic_event;
-
-	input_set_drvdata(keyboard_input_dev, nanosic_dev);
-
-	for (int i = 0; i < KEY_MAX; i++) {
-		set_bit(i, keyboard_input_dev->keybit);
-	}
-
 	// Set up touhpad input device
 	touchpad_dev = devm_input_allocate_device(dev);
 	if (!touchpad_dev) {
@@ -647,7 +649,6 @@ static int nanosic_803_probe(struct i2c_client *client)
 		return PTR_ERR(map);
 
 	nanosic_dev->client = client;
-	nanosic_dev->keyboard_input_dev = keyboard_input_dev;
 	nanosic_dev->touchpad_input_dev = touchpad_dev;
 	nanosic_dev->regmap = map;
 
