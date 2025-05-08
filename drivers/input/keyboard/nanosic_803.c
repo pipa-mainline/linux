@@ -502,17 +502,17 @@ static int nanosic_803_probe(struct i2c_client *client)
 	unsigned int ret, i;
 	unsigned int touchpad_resolution_x, touchpad_resolution_y;
 
-	printk("Starting creating singlethread...");
-	nanosic_dev->wq = create_singlethread_workqueue("nanosic_connect_wq");
-	printk("Init work...");
-	INIT_WORK(&nanosic_dev->offload, device_connect_handler);
-
 	nanosic_dev = devm_kzalloc(dev, sizeof(*nanosic_dev), GFP_KERNEL);
 	if (!nanosic_dev)
 		return -ENOMEM;
 
 	nanosic_dev->dev = dev;
 	dev_set_drvdata(dev, nanosic_dev);
+
+	printk("Starting creating singlethread...");
+	nanosic_dev->wq = create_singlethread_workqueue("nanosic_connect_wq");
+	printk("Init work...");
+	INIT_WORK(&nanosic_dev->offload, device_connect_handler);
 
 	// Get GPIOs
 	nanosic_dev->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
