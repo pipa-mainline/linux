@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- *  Nanosic 803 keyboard controller
+ *  Nanosic 803 keyboard controller driver
  *
  *  Copyright (C) 2024 Luka Panio <lukapanio@gmail.com>
  *
- *  Base on nano_driver driver by:
+ *  Based on nano_driver by:
  *  Bin yuan <bin.yuan@nanosic.com>
  *  Copyright (C) 2010, Nanosic, Inc
  */
@@ -25,6 +25,7 @@
 #define I2C_DATA_LENGTH_WRITE (66)
 
 #define TOUCH_TIMEOUT_MS 75
+#define INT_ADDR_MAX_BYTES 4
 
 static const unsigned int hid_to_linux_keycode[] = {
 	[0x04] = KEY_A,
@@ -105,7 +106,6 @@ static const uint16_t hid_modifier_to_linux_keycode[8] = {
     KEY_RIGHTMETA
 };
 
-
 static const struct regmap_config nanosic_803_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
@@ -113,32 +113,32 @@ static const struct regmap_config nanosic_803_regmap_config = {
 };
 
 struct nanosic_803_priv {
-	struct device 		*dev;
-	struct i2c_client	*client;
-	struct input_dev	*keyboard_input_dev;
-	struct input_dev	*touchpad_input_dev;
-	struct regmap		*regmap;
-	struct gpio_desc	*reset_gpio;
-	struct gpio_desc	*sleep_gpio;
-	struct gpio_desc	*vdd_gpio;
-	struct gpio_desc	*irq_gpio;
+	struct device *dev;
+	struct i2c_client *client;
+	struct input_dev *keyboard_input_dev;
+	struct input_dev *touchpad_input_dev;
+	struct regmap *regmap;
+	struct gpio_desc *reset_gpio;
+	struct gpio_desc *sleep_gpio;
+	struct gpio_desc *vdd_gpio;
+	struct gpio_desc *irq_gpio;
+	struct regulator *vdd_1v8;
+	struct regulator *vdd_3v3;
 	struct workqueue_struct	*wq;
-	struct work_struct 	offload;
-	unsigned int 		irq_number;
-	struct mutex 		read_mutex;
-	char			last_pressed_key[5];
-	char			last_modifier_state;
-	int 			slot_mapping[3];
-	struct timer_list	finger_timer;
-	bool 			finger_down;
-	bool            is_connected;
-	unsigned long		last_touch_time;
-	int 			last_x, last_y;
-	struct regulator	*vdd_1v8;
-	struct regulator	*vdd_3v3;
+	struct work_struct offload;
+	struct timer_list finger_timer;
+	struct mutex read_mutex;
+	unsigned int irq_number;
+	char last_pressed_key[5];
+	char last_modifier_state;
+	int slot_mapping[3];
+	bool finger_down;
+	bool is_connected;
+	unsigned long last_touch_time;
+	int last_x, last_y;
 };
 
-void nanosic_803_wakeup(struct nanosic_803_priv *nanosic_dev)
+static void nanosic_803_wakeup(struct nanosic_803_priv *nanosic_dev)
 {
 	int level = 1;
 	int retry = 3;
@@ -147,31 +147,33 @@ void nanosic_803_wakeup(struct nanosic_803_priv *nanosic_dev)
 	if (level <= 0) {
 		mdelay(25);
 		while (retry--) {
-			/*try three times*/
+			// Try three times
 			if (gpiod_get_value(nanosic_dev->irq_gpio)) {
 				break;
 			}
-			/*reset wn8030*/
+			// Reset wn8030
 			if (retry == 0) {
 				gpiod_set_value(nanosic_dev->reset_gpio, 0);
 				mdelay(100);
 				gpiod_set_value(nanosic_dev->reset_gpio, 1);
 
-				// delay 500ms for iic ready
+				// Delay 500ms for iic ready
 				mdelay(500);
 			}
-			/*irq low level duration is 1ms*/
+			// IRQ low level duration is 1ms
 			mdelay(1);
 		}
 	}
 }
 
-int nanosic_803_read_version(struct nanosic_803_priv *nanosic_dev)
+static int nanosic_803_read_version(struct nanosic_803_priv *nanosic_dev)
 {
-	char rsp[I2C_DATA_LENGTH_READ] = { 0 };
-	char cmd[I2C_DATA_LENGTH_WRITE] = { 0x32, 0x00, 0x4F, 0x30, 0x80,
-						0x18, 0x01, 0x00, 0x18 };
-	char hex_dump[3 * I2C_DATA_LENGTH_READ + 1] = { 0 };
+	char rsp[I2C_DATA_LENGTH_READ] = {0};
+	char cmd[I2C_DATA_LENGTH_WRITE] = {
+		0x32, 0x00, 0x4F, 0x30, 0x80,
+		0x18, 0x01, 0x00, 0x18
+	};
+	char hex_dump[3 * I2C_DATA_LENGTH_READ + 1] = {0};
 	u8 retry = 0;
 	int ret = -1;
 
@@ -199,9 +201,7 @@ int nanosic_803_read_version(struct nanosic_803_priv *nanosic_dev)
 	return ret;
 }
 
-#define INT_ADDR_MAX_BYTES 4
-
-int nanosic_i2c_read(struct nanosic_803_priv *nanosic_dev, void *buf, size_t len)
+static int nanosic_i2c_read(struct nanosic_803_priv *nanosic_dev, void *buf, size_t len)
 {
 	struct i2c_adapter *adap;
 	unsigned char addr[INT_ADDR_MAX_BYTES];
@@ -233,7 +233,7 @@ int nanosic_i2c_read(struct nanosic_803_priv *nanosic_dev, void *buf, size_t len
 	return len;
 }
 
-int nanosic_i2c_write(struct nanosic_803_priv *nanosic_dev, void *buf, size_t len)
+static int nanosic_i2c_write(struct nanosic_803_priv *nanosic_dev, void *buf, size_t len)
 {
 	struct i2c_msg msg;
 	struct i2c_adapter *adap;
@@ -259,9 +259,11 @@ int nanosic_i2c_write(struct nanosic_803_priv *nanosic_dev, void *buf, size_t le
 	return len;
 }
 
-void nanosic_handle_hall(struct nanosic_803_priv *nanosic_dev, char *buf) {
+static void nanosic_handle_hall(struct nanosic_803_priv *nanosic_dev, char *buf)
+{
 	if (buf[5] == 0x38 && buf[6] == 0x80 && buf[7] == 0xa2) {
 		bool was_connected = nanosic_dev->is_connected;
+
 		if (buf[12] == 0x23) {
 			printk("Unreg devices");
 			nanosic_dev->is_connected = true;
@@ -275,7 +277,8 @@ void nanosic_handle_hall(struct nanosic_803_priv *nanosic_dev, char *buf) {
 	}
 }
 
-void handle_modifiers(struct nanosic_803_priv *nanosic_dev, char modifiers) {
+static void handle_modifiers(struct nanosic_803_priv *nanosic_dev, char modifiers)
+{
 	char last_modifiers = nanosic_dev->last_modifier_state;
 
 	for (int i = 0; i < 8; i++) {
@@ -296,7 +299,8 @@ void handle_modifiers(struct nanosic_803_priv *nanosic_dev, char modifiers) {
 	nanosic_dev->last_modifier_state = modifiers;
 }
 
-void nanosic_handle_keyboard(struct nanosic_803_priv *nanosic_dev, char *buf) {
+static void nanosic_handle_keyboard(struct nanosic_803_priv *nanosic_dev, char *buf)
+{
 	int i, j;
 	int found;
 
@@ -311,7 +315,7 @@ void nanosic_handle_keyboard(struct nanosic_803_priv *nanosic_dev, char *buf) {
 			}
 		}
 		if (!found) {
-			input_report_key(nanosic_dev->keyboard_input_dev, hid_to_linux_keycode[buf[6+i]], 1);
+			input_report_key(nanosic_dev->keyboard_input_dev, hid_to_linux_keycode[(unsigned char)buf[6+i]], 1);
 			input_sync(nanosic_dev->keyboard_input_dev);
 			dev_dbg(nanosic_dev->dev, "Key pressed: 0x%02X\n", buf[6+i]);
 		}
@@ -327,18 +331,19 @@ void nanosic_handle_keyboard(struct nanosic_803_priv *nanosic_dev, char *buf) {
 		}
 		if (!found) {
 			dev_dbg(nanosic_dev->dev, "Key released: 0x%02X\n", nanosic_dev->last_pressed_key[i]);
-			input_report_key(nanosic_dev->keyboard_input_dev, hid_to_linux_keycode[nanosic_dev->last_pressed_key[i]], 0);
+			input_report_key(nanosic_dev->keyboard_input_dev, hid_to_linux_keycode[(unsigned char)nanosic_dev->last_pressed_key[i]], 0);
 			input_sync(nanosic_dev->keyboard_input_dev);
 		}
 	}
 	memcpy(nanosic_dev->last_pressed_key, &buf[6], sizeof(nanosic_dev->last_pressed_key));
 }
 
-void nanosic_touch_timer_callback(struct timer_list *t) {
+static void nanosic_touch_timer_callback(struct timer_list *t)
+{
 	struct nanosic_803_priv *nanosic_dev = from_timer(nanosic_dev, t, finger_timer);
 
 	if (nanosic_dev->finger_down) {
-		for(int i = 0; i<3; i++) {
+		for (int i = 0; i<3; i++) {
 			input_mt_slot(nanosic_dev->touchpad_input_dev, nanosic_dev->slot_mapping[i]);
 			input_mt_report_slot_state(nanosic_dev->touchpad_input_dev, MT_TOOL_FINGER, 0);
 			input_report_abs(nanosic_dev->touchpad_input_dev, ABS_MT_TRACKING_ID, -1);
@@ -348,7 +353,8 @@ void nanosic_touch_timer_callback(struct timer_list *t) {
     }
 }
 
-void nanosic_handle_touchpad_mt(struct nanosic_803_priv *nanosic_dev, char *buf) {
+static void nanosic_handle_touchpad_mt(struct nanosic_803_priv *nanosic_dev, char *buf)
+{
 	int finger_id, x, y;
 
 	for (int i = 0; i < 3; i++) {
@@ -395,16 +401,20 @@ void nanosic_handle_touchpad_mt(struct nanosic_803_priv *nanosic_dev, char *buf)
 	mod_timer(&nanosic_dev->finger_timer, jiffies + msecs_to_jiffies(TOUCH_TIMEOUT_MS));
 }
 
-int nanosic_set_caps_led(struct nanosic_803_priv *nanosic_dev, bool enable)
+static int nanosic_set_caps_led(struct nanosic_803_priv *nanosic_dev, bool enable)
 {
 	int i = 0, ret = 0;
-	dev_dbg(nanosic_dev->dev, "Going to set caps led: %d\n", enable);
-	char cmd[I2C_DATA_LENGTH_WRITE] = { 0x32, 0x00, 0x4E, 0x31,
-					    0x80, 0x38, 0x26, 0x01, enable};
+	dev_dbg(nanosic_dev->dev, "settings caps led: %d\n", enable);
+	char cmd[I2C_DATA_LENGTH_WRITE] = {
+		0x32, 0x00, 0x4E, 0x31,
+		0x80, 0x38, 0x26, 0x01, enable
+	};
 
 	for (i = 2; i < 9; i++) {
 		cmd[9] += cmd[i];
-	} /*cal sum*/
+	}
+
+	/* cal sum */
 	ret = nanosic_i2c_write(nanosic_dev, cmd, sizeof(cmd));
 
 	return ret;
@@ -413,7 +423,7 @@ int nanosic_set_caps_led(struct nanosic_803_priv *nanosic_dev, bool enable)
 static int nanosic_event(struct input_dev *dev, unsigned int type, unsigned int code, int value)
 {
 	struct nanosic_803_priv *nanosic_dev = input_get_drvdata(dev);
-	dev_dbg(nanosic_dev->dev, "nanosic_event type: %ld, code: %ld, value: %ld\n", type, code, value);
+	dev_dbg(nanosic_dev->dev, "nanosic_event type: %d, code: %u, value: %d\n", type, code, value);
 	if (!nanosic_dev)
 		return -EINVAL;
 
@@ -433,6 +443,8 @@ static void device_connect_handler(struct work_struct *work)
 {
 	struct nanosic_803_priv *nanosic_dev;
 	struct input_dev *keyboard_input_dev;
+	int ret;
+
 	nanosic_dev = container_of(work, struct nanosic_803_priv, offload);
 	if (nanosic_dev->is_connected) {
 		keyboard_input_dev = devm_input_allocate_device(nanosic_dev->dev);
@@ -460,33 +472,42 @@ static void device_connect_handler(struct work_struct *work)
 			set_bit(i, keyboard_input_dev->keybit);
 		}
 		nanosic_dev->keyboard_input_dev = keyboard_input_dev;
-		input_register_device(nanosic_dev->keyboard_input_dev);
+
+		ret = input_register_device(nanosic_dev->keyboard_input_dev);
+		if (ret) {
+			dev_err(nanosic_dev->dev, "failed to register input device: %d\n", ret);
+		}
 	} else {
 		input_unregister_device(nanosic_dev->keyboard_input_dev);
 	}
 }
 
-static irqreturn_t nanosic_irq_handler(int irq, void *dev_id) {
+static irqreturn_t nanosic_irq_handler(int irq, void *dev_id)
+{
 	struct nanosic_803_priv *nanosic_dev = dev_id;
 	int ret;
-	char buf[I2C_DATA_LENGTH_READ] = { 0 };
-	char hex_dump[3 * I2C_DATA_LENGTH_READ + 1] = { 0 };
+	char buf[I2C_DATA_LENGTH_READ] = {0};
+	char hex_dump[3 * I2C_DATA_LENGTH_READ + 1] = {0};
 
 	mutex_lock(&nanosic_dev->read_mutex);
 	ret = nanosic_i2c_read(nanosic_dev, buf, sizeof(buf));
 	mutex_unlock(&nanosic_dev->read_mutex);
-	if(ret == 0) {
+	if (ret == 0) {
 		dev_err(nanosic_dev->dev, "Failed to read data on interrupt: %d\n", ret);
 		return IRQ_HANDLED;
 	}
+
 	for (int i = 0; i < ret; i++) {
 		snprintf(&hex_dump[i * 3], 4, "%02x ", buf[i]);
 	}
 	dev_dbg(nanosic_dev->dev, "nanosic message: %s\n", hex_dump);
 
-	if(buf[0] != 0x57 || buf[2] == 0) {
+	if (buf[0] != 0x57 || buf[2] == 0) {
 		dev_err(nanosic_dev->dev, "Malformed message\n");
-		// Our hardware might randomly return no meesage/random data, so assume we hanfled irq correctly
+		/*
+		 * Our hardware might randomly return no message/random data,
+		 * so assume we handled IRQ correctly
+		 */
 		return IRQ_HANDLED;
 	}
 
@@ -508,11 +529,7 @@ static irqreturn_t nanosic_irq_handler(int irq, void *dev_id) {
 	return IRQ_HANDLED;
 }
 
-
-
-
-
-void nanosic_803_reset(struct nanosic_803_priv *nanosic_dev)
+static void nanosic_803_reset(struct nanosic_803_priv *nanosic_dev)
 {
 	gpiod_set_value(nanosic_dev->reset_gpio, 0);
 	gpiod_set_value(nanosic_dev->sleep_gpio, 0);
@@ -530,7 +547,7 @@ static int nanosic_803_probe(struct i2c_client *client)
 	struct input_dev *touchpad_dev;
 	struct device *dev = &client->dev;
 	struct regmap *map;
-	unsigned int ret, i;
+	unsigned int ret;
 	unsigned int touchpad_resolution_x, touchpad_resolution_y;
 
 	nanosic_dev = devm_kzalloc(dev, sizeof(*nanosic_dev), GFP_KERNEL);
@@ -632,6 +649,7 @@ static int nanosic_803_probe(struct i2c_client *client)
 		dev_err(dev, "Failed to initialize MT slots: %d\n", ret);
 		return ret;
 	}
+
 	set_bit(INPUT_PROP_POINTER, touchpad_dev->propbit);
 	set_bit(EV_ABS, touchpad_dev->evbit);
 	input_set_abs_params(touchpad_dev, ABS_MT_POSITION_X, 0, touchpad_resolution_x, 0, 0);
@@ -658,16 +676,16 @@ static int nanosic_803_probe(struct i2c_client *client)
 
 	i2c_set_clientdata(client, nanosic_dev);
 
-	// Try to identify chip
+	// Try to identify the chip
 	if(nanosic_803_read_version(nanosic_dev)) {
 		dev_err(dev, "Nanosic 803 not found\n");
 		return -ENODEV;
 	}
 
-	// Set up irq
+	// Set up IRQ
 	nanosic_dev->irq_number = gpiod_to_irq(nanosic_dev->irq_gpio);
 	if (nanosic_dev->irq_number < 0) {
-		dev_err(nanosic_dev->dev, "Failed to get IRQ for GPIO %d\n", nanosic_dev->irq_gpio);
+		dev_err(nanosic_dev->dev, "Failed to get IRQ for GPIO %d\n", desc_to_gpio(nanosic_dev->irq_gpio));
 		return nanosic_dev->irq_number;
 	}
 
