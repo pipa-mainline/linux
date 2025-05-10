@@ -305,45 +305,41 @@ static int nanosic_event(struct input_dev *dev, unsigned int type, unsigned int 
 	return 0;
 }
 
-static void device_connect_handler(struct nanosic_803_priv *nanosic_dev)
+static int nanosic_register_keyboard(struct nanosic_803_priv *nanosic_dev)
 {
 	struct input_dev *keyboard_input_dev;
 	int ret;
 
-	if (nanosic_dev->is_connected) {
-		keyboard_input_dev = devm_input_allocate_device(nanosic_dev->dev);
-		if (!keyboard_input_dev) {
-			dev_err(nanosic_dev->dev, "could not allocate keyboard input device: %d\n", -ENOMEM);
-			return;
-		}
-		keyboard_input_dev->name = "Nanosic 803 keyboard";
-		keyboard_input_dev->phys = "input/keyboard";
-		keyboard_input_dev->id.bustype = BUS_I2C;
-		keyboard_input_dev->id.vendor = 0x1234;
-		keyboard_input_dev->id.product = 0x5678;
-		keyboard_input_dev->id.version = 0x0100;
-
-		set_bit(EV_KEY, keyboard_input_dev->evbit);
-		set_bit(EV_REP, keyboard_input_dev->evbit);
-
-		keyboard_input_dev->evbit[0] |= BIT_MASK(EV_LED) |  BIT_MASK(EV_KEY) | BIT_MASK(EV_REP);
-		keyboard_input_dev->ledbit[0] = BIT_MASK(LED_CAPSL);
-		keyboard_input_dev->event = nanosic_event;
-
-		input_set_drvdata(keyboard_input_dev, nanosic_dev);
-
-		for (int i = 0; i < KEY_MAX; i++) {
-			set_bit(i, keyboard_input_dev->keybit);
-		}
-		nanosic_dev->keyboard_input_dev = keyboard_input_dev;
-
-		ret = input_register_device(nanosic_dev->keyboard_input_dev);
-		if (ret) {
-			dev_err(nanosic_dev->dev, "failed to register input device: %d\n", ret);
-		}
-	} else {
-		input_unregister_device(nanosic_dev->keyboard_input_dev);
+	keyboard_input_dev = devm_input_allocate_device(nanosic_dev->dev);
+	if (!keyboard_input_dev) {
+		ret = -ENOMEM;
+		dev_err(nanosic_dev->dev, "could not allocate keyboard input device: %d\n", ret);
+		return ret;
 	}
+	keyboard_input_dev->name = "Nanosic 803 keyboard";
+	keyboard_input_dev->phys = "input/keyboard";
+	keyboard_input_dev->id.bustype = BUS_I2C;
+	keyboard_input_dev->id.vendor = 0x1234;
+	keyboard_input_dev->id.product = 0x5678;
+	keyboard_input_dev->id.version = 0x0100;
+
+	set_bit(EV_KEY, keyboard_input_dev->evbit);
+	set_bit(EV_REP, keyboard_input_dev->evbit);
+
+	keyboard_input_dev->evbit[0] |= BIT_MASK(EV_LED) |  BIT_MASK(EV_KEY) | BIT_MASK(EV_REP);
+	keyboard_input_dev->ledbit[0] = BIT_MASK(LED_CAPSL);
+	keyboard_input_dev->event = nanosic_event;
+
+	input_set_drvdata(keyboard_input_dev, nanosic_dev);
+
+	for (int i = 0; i < KEY_MAX; i++)
+		set_bit(i, keyboard_input_dev->keybit);
+
+	nanosic_dev->keyboard_input_dev = keyboard_input_dev;
+	ret = input_register_device(nanosic_dev->keyboard_input_dev);
+	if (ret)
+		dev_err(nanosic_dev->dev, "failed to register input device: %d\n", ret);
+	return ret;
 }
 
 static void nanosic_handle_hall(struct nanosic_803_priv *nanosic_dev, char *buf)
@@ -352,14 +348,15 @@ static void nanosic_handle_hall(struct nanosic_803_priv *nanosic_dev, char *buf)
 		bool was_connected = nanosic_dev->is_connected;
 
 		if (buf[12] == 0x23) {
-			printk("Unreg devices");
+			dev_dbg(nanosic_dev->dev, "Reg devices");
 			nanosic_dev->is_connected = true;
+			if (nanosic_dev->is_connected != was_connected)
+				nanosic_register_keyboard(nanosic_dev);
 		} else if (buf[12] == 0x0) {
-			printk("Reg devices");
+			dev_dbg(nanosic_dev->dev, "Unreg devices");
 			nanosic_dev->is_connected = false;
-		}
-		if (nanosic_dev->is_connected != was_connected) {
-			device_connect_handler(nanosic_dev);
+			if (nanosic_dev->is_connected != was_connected)
+				input_unregister_device(nanosic_dev->keyboard_input_dev);
 		}
 	}
 }
