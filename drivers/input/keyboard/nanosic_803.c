@@ -484,6 +484,11 @@ static void device_connect_handler(struct work_struct *work)
 
 static irqreturn_t nanosic_irq_handler(int irq, void *dev_id)
 {
+	return IRQ_WAKE_THREAD;
+}
+
+static irqreturn_t nanosic_interrupt_thread_fn(int irq, void *dev_id)
+{
 	struct nanosic_803_priv *nanosic_dev = dev_id;
 	int ret;
 	char buf[I2C_DATA_LENGTH_READ] = {0};
@@ -689,8 +694,9 @@ static int nanosic_803_probe(struct i2c_client *client)
 		return nanosic_dev->irq_number;
 	}
 
-	ret = request_irq(nanosic_dev->irq_number, nanosic_irq_handler,
-				0x6001, "nanosic_irq", nanosic_dev);
+	ret = request_threaded_irq(nanosic_dev->irq_number,
+		nanosic_irq_handler, nanosic_interrupt_thread_fn,
+		0x6001, "nanosic_irq", nanosic_dev);
 
 	if (ret) {
 		dev_err(nanosic_dev->dev, "Failed to request IRQ %d: %d\n", nanosic_dev->irq_number, ret);
