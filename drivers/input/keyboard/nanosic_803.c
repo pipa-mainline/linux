@@ -497,6 +497,8 @@ static irqreturn_t nanosic_interrupt_thread_fn(int irq, void *dev_id)
 	char buf[I2C_DATA_LENGTH_READ] = {0};
 	char hex_dump[3 * I2C_DATA_LENGTH_READ + 1] = {0};
 
+	usleep_range(1000, 5000);
+
 	mutex_lock(&nanosic_dev->read_mutex);
 	ret = nanosic_i2c_read(nanosic_dev, buf, sizeof(buf));
 	mutex_unlock(&nanosic_dev->read_mutex);
