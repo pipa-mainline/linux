@@ -86,13 +86,14 @@ static const unsigned int hid_to_linux_keycode[] = {
 	[0x50] = KEY_LEFT,
 	[0x51] = KEY_DOWN,
 	[0x52] = KEY_UP,
-	[0xe0] = KEY_LEFTCTRL,
-	[0xe1] = KEY_LEFTSHIFT,
-	[0xe2] = KEY_LEFTALT,
-	[0xe3] = KEY_LEFTMETA,
-	[0xe4] = KEY_RIGHTCTRL,
-	[0xe5] = KEY_RIGHTSHIFT,
-	[0xe6] = KEY_RIGHTALT,
+	[0x6f] = KEY_BRIGHTNESSUP,
+	[0x70] = KEY_BRIGHTNESSDOWN,
+	[0xb5] = KEY_NEXTSONG,
+	[0xb6] = KEY_PREVIOUSSONG,
+	[0xcd] = KEY_PLAYPAUSE,
+	[0xe2] = KEY_MUTE,
+	[0xe9] = KEY_VOLUMEUP,
+	[0xea] = KEY_VOLUMEDOWN,
 };
 
 static const uint16_t hid_modifier_to_linux_keycode[8] = {
@@ -131,6 +132,7 @@ struct nanosic_803_priv {
 	unsigned int irq_number;
 	char last_pressed_key[5];
 	char last_modifier_state;
+	char last_fn_key;
 	int slot_mapping[3];
 	bool finger_down;
 	bool is_connected;
@@ -422,6 +424,23 @@ static void nanosic_handle_keyboard(struct nanosic_803_priv *nanosic_dev, char *
 	memcpy(nanosic_dev->last_pressed_key, &buf[6], sizeof(nanosic_dev->last_pressed_key));
 }
 
+static void nanosic_handle_fn_key(struct nanosic_803_priv *nanosic_dev, char *buf)
+{
+	if (buf[4] != nanosic_dev->last_fn_key) {
+		if (nanosic_dev->last_fn_key != 0x00) {
+			dev_dbg(nanosic_dev->dev, "Key released: 0x%02X\n", nanosic_dev->last_fn_key);
+			input_report_key(nanosic_dev->keyboard_input_dev, hid_to_linux_keycode[(unsigned char)nanosic_dev->last_fn_key], 0);
+			input_sync(nanosic_dev->keyboard_input_dev);
+		}
+		if (buf[4] != 0x00) {
+			dev_dbg(nanosic_dev->dev, "Key pressed: 0x%02X\n", buf[4]);
+			input_report_key(nanosic_dev->keyboard_input_dev, hid_to_linux_keycode[(unsigned char)buf[4]], 1);
+			input_sync(nanosic_dev->keyboard_input_dev);
+		}
+		nanosic_dev->last_fn_key = buf[4];
+	}
+}
+
 static void nanosic_touch_timer_callback(struct timer_list *t)
 {
 	struct nanosic_803_priv *nanosic_dev = from_timer(nanosic_dev, t, finger_timer);
@@ -525,6 +544,10 @@ static irqreturn_t nanosic_interrupt_thread_fn(int irq, void *dev_id)
 		case 0x05:
 			// Handle keyboard event
 			nanosic_handle_keyboard(nanosic_dev, buf);
+			break;
+		case 0x06:
+			// Handle function keys
+			nanosic_handle_fn_key(nanosic_dev, buf);
 			break;
 		case 0x19:
 			// Handle touchpad event
