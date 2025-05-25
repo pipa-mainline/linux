@@ -135,7 +135,8 @@ struct nanosic_803_priv {
 	char last_fn_key;
 	int slot_mapping[3];
 	bool finger_down;
-	bool is_connected;
+	bool is_keyboard_connected;
+	bool is_touchpad_connected;
 	bool caps_led_on;
 	unsigned long last_touch_time;
 	int last_x, last_y;
@@ -312,6 +313,7 @@ static int nanosic_register_keyboard(struct nanosic_803_priv *nanosic_dev)
 	struct input_dev *keyboard_input_dev;
 	int ret;
 
+	// Allocating keyboard device
 	keyboard_input_dev = devm_input_allocate_device(nanosic_dev->dev);
 	if (!keyboard_input_dev) {
 		ret = -ENOMEM;
@@ -337,6 +339,7 @@ static int nanosic_register_keyboard(struct nanosic_803_priv *nanosic_dev)
 	for (int i = 0; i < KEY_MAX; i++)
 		set_bit(i, keyboard_input_dev->keybit);
 
+	// Registering keyboard device
 	nanosic_dev->keyboard_input_dev = keyboard_input_dev;
 	ret = input_register_device(nanosic_dev->keyboard_input_dev);
 	if (ret)
@@ -344,21 +347,86 @@ static int nanosic_register_keyboard(struct nanosic_803_priv *nanosic_dev)
 	return ret;
 }
 
+static int nanosic_register_touchpad(struct nanosic_803_priv *nanosic_dev)
+{
+	struct input_dev *touchpad_input_dev;
+	int ret;
+	unsigned int touchpad_resolution_x, touchpad_resolution_y;
+
+	// Get touchpad resolution
+	if (of_property_read_u32(nanosic_dev->dev->of_node, "touchpad-resolution-x", &touchpad_resolution_x)) {
+		dev_err(nanosic_dev->dev, "Failed to read touchpad-resolution-x from DT\n");
+		return -EINVAL;
+	}
+
+	if (of_property_read_u32(nanosic_dev->dev->of_node, "touchpad-resolution-y", &touchpad_resolution_y)) {
+		dev_err(nanosic_dev->dev, "Failed to read touchpad-resolution-y from DT\n");
+		return -EINVAL;
+	}
+
+	// Allocating touchpad device
+	touchpad_input_dev = devm_input_allocate_device(nanosic_dev->dev);
+	if (!touchpad_input_dev) {
+		pr_err("Failed to allocate touchpad input device\n");
+		return -ENOMEM;
+	}
+
+	touchpad_input_dev->name = "Nanosic 803 touchpad";
+	touchpad_input_dev->phys = "input/touchpad";
+	touchpad_input_dev->id.bustype = BUS_I2C;
+	touchpad_input_dev->id.vendor = 0x1234;
+	touchpad_input_dev->id.product = 0x5678;
+	touchpad_input_dev->id.version = 0x0001;
+
+	ret = input_mt_init_slots(touchpad_input_dev, 3, INPUT_MT_POINTER);
+	if (ret) {
+		dev_err(nanosic_dev->dev, "Failed to initialize MT slots: %d\n", ret);
+		return ret;
+	}
+
+	set_bit(INPUT_PROP_POINTER, touchpad_input_dev->propbit);
+	set_bit(EV_ABS, touchpad_input_dev->evbit);
+	input_set_abs_params(touchpad_input_dev, ABS_MT_POSITION_X, 0, touchpad_resolution_x, 0, 0);
+	input_set_abs_params(touchpad_input_dev, ABS_MT_POSITION_Y, 0, touchpad_resolution_y, 0, 0);
+	input_set_abs_params(touchpad_input_dev, ABS_MT_TRACKING_ID, 0, 3 - 1, 0, 0);
+
+	set_bit(EV_KEY, touchpad_input_dev->evbit);
+	set_bit(BTN_LEFT, touchpad_input_dev->keybit);
+	set_bit(BTN_RIGHT, touchpad_input_dev->keybit);
+
+	input_set_drvdata(touchpad_input_dev, nanosic_dev);
+
+	// Registering touchpad device
+	nanosic_dev->touchpad_input_dev = touchpad_input_dev;
+	ret = input_register_device(nanosic_dev->touchpad_input_dev);
+	if (ret)
+		dev_err(nanosic_dev->dev, "failed to register input device: %d\n", ret);
+	return ret;
+}
+
+
 static void nanosic_handle_hall(struct nanosic_803_priv *nanosic_dev, char *buf)
 {
 	if (buf[5] == 0x38 && buf[6] == 0x80 && buf[7] == 0xa2) {
-		bool was_connected = nanosic_dev->is_connected;
+		bool was_keyboard_connected = nanosic_dev->is_keyboard_connected;
+		bool was_touchpad_connected = nanosic_dev->is_touchpad_connected;
 
 		if (buf[12] == 0x23) {
-			dev_dbg(nanosic_dev->dev, "Reg devices");
-			nanosic_dev->is_connected = true;
-			if (nanosic_dev->is_connected != was_connected)
+			dev_dbg(nanosic_dev->dev, "registering input devices\n");
+			nanosic_dev->is_keyboard_connected = true;
+			nanosic_dev->is_touchpad_connected = true;
+			if (nanosic_dev->is_keyboard_connected != was_keyboard_connected)
 				nanosic_register_keyboard(nanosic_dev);
+			if (nanosic_dev->is_touchpad_connected != was_touchpad_connected)
+				nanosic_register_touchpad(nanosic_dev);
 		} else if (buf[12] == 0x0) {
-			dev_dbg(nanosic_dev->dev, "Unreg devices");
-			nanosic_dev->is_connected = false;
-			if (nanosic_dev->is_connected != was_connected)
+			dev_dbg(nanosic_dev->dev, "unregistering input devices\n");
+			nanosic_dev->is_keyboard_connected = false;
+			nanosic_dev->is_touchpad_connected = false;
+			if (nanosic_dev->is_keyboard_connected != was_keyboard_connected)
 				input_unregister_device(nanosic_dev->keyboard_input_dev);
+			if (nanosic_dev->is_touchpad_connected != was_touchpad_connected)
+				input_unregister_device(nanosic_dev->touchpad_input_dev);
 		}
 	}
 }
@@ -576,11 +644,9 @@ static void nanosic_803_reset(struct nanosic_803_priv *nanosic_dev)
 static int nanosic_803_probe(struct i2c_client *client)
 {
 	struct nanosic_803_priv *nanosic_dev;
-	struct input_dev *touchpad_dev;
 	struct device *dev = &client->dev;
 	struct regmap *map;
 	unsigned int ret;
-	unsigned int touchpad_resolution_x, touchpad_resolution_y;
 
 	nanosic_dev = devm_kzalloc(dev, sizeof(*nanosic_dev), GFP_KERNEL);
 	if (!nanosic_dev)
@@ -589,9 +655,7 @@ static int nanosic_803_probe(struct i2c_client *client)
 	nanosic_dev->dev = dev;
 	dev_set_drvdata(dev, nanosic_dev);
 
-	printk("Starting creating singlethread...");
 	nanosic_dev->wq = create_singlethread_workqueue("nanosic_wq");
-	printk("Init work...");
 	INIT_WORK(&nanosic_dev->led_work, nanosic_sync_caps_led);
 
 	// Get GPIOs
@@ -632,17 +696,6 @@ static int nanosic_803_probe(struct i2c_client *client)
 		return PTR_ERR(nanosic_dev->vdd_3v3);
 	}
 
-	// Get touchpad resolution
-	if (of_property_read_u32(dev->of_node, "touchpad-resolution-x", &touchpad_resolution_x)) {
-		dev_err(dev, "Failed to read touchpad-resolution-x from DT\n");
-		return -EINVAL;
-	}
-
-	if (of_property_read_u32(dev->of_node, "touchpad-resolution-y", &touchpad_resolution_y)) {
-		dev_err(dev, "Failed to read touchpad-resolution-y from DT\n");
-		return -EINVAL;
-	}
-
 	// Enable regulators
 	ret = regulator_enable(nanosic_dev->vdd_1v8);
 	if (ret) {
@@ -662,47 +715,13 @@ static int nanosic_803_probe(struct i2c_client *client)
 	// Wake up the chip
 	nanosic_803_wakeup(nanosic_dev);
 
-	// Set up touhpad input device
-	touchpad_dev = devm_input_allocate_device(dev);
-	if (!touchpad_dev) {
-		pr_err("Failed to allocate touchpad input device\n");
-		return -ENOMEM;
-	}
-
-	touchpad_dev->name = "Nanosic 803 touchpad";
-	touchpad_dev->phys = "input/touchpad";
-	touchpad_dev->id.bustype = BUS_I2C;
-	touchpad_dev->id.vendor = 0x1234;
-	touchpad_dev->id.product = 0x5678;
-	touchpad_dev->id.version = 0x0001;
-
-	ret = input_mt_init_slots(touchpad_dev, 3, INPUT_MT_POINTER);
-	if (ret) {
-		dev_err(dev, "Failed to initialize MT slots: %d\n", ret);
-		return ret;
-	}
-
-	set_bit(INPUT_PROP_POINTER, touchpad_dev->propbit);
-	set_bit(EV_ABS, touchpad_dev->evbit);
-	input_set_abs_params(touchpad_dev, ABS_MT_POSITION_X, 0, touchpad_resolution_x, 0, 0);
-	input_set_abs_params(touchpad_dev, ABS_MT_POSITION_Y, 0, touchpad_resolution_y, 0, 0);
-	input_set_abs_params(touchpad_dev, ABS_MT_TRACKING_ID, 0, 3 - 1, 0, 0);
-
-	set_bit(EV_KEY, touchpad_dev->evbit);
-	set_bit(BTN_LEFT, touchpad_dev->keybit);
-	set_bit(BTN_RIGHT, touchpad_dev->keybit);
-
-	input_set_drvdata(touchpad_dev, nanosic_dev);
-
 	// Set up regmap
 	map = devm_regmap_init_i2c(client, &nanosic_803_regmap_config);
 	if (IS_ERR(map))
 		return PTR_ERR(map);
 
 	nanosic_dev->client = client;
-	nanosic_dev->touchpad_input_dev = touchpad_dev;
 	nanosic_dev->regmap = map;
-
 
 	mutex_init(&nanosic_dev->read_mutex);
 
@@ -737,7 +756,8 @@ static int nanosic_803_probe(struct i2c_client *client)
 
 	timer_setup(&nanosic_dev->finger_timer, nanosic_touch_timer_callback, 0);
 	nanosic_dev->finger_down = false;
-	nanosic_dev->is_connected = false;
+	nanosic_dev->is_keyboard_connected = false;
+	nanosic_dev->is_touchpad_connected = false;
 	return 0;
 }
 
