@@ -610,12 +610,12 @@
 
 &cci0_i2c0 {
 	camera_wide: camera@10 {
-		compatible = "ovti,ov13b10i2c";
+		compatible = "ovti,ov13b10";
 		reg = <0x10>;
 
-		vdda-supply = <&camera_wide_vana>;
-		vddd-supply = <&vreg_l3c_1p2>;
-		vddio-supply = <&vreg_l1c_1p8>;
+		avdd-supply = <&camera_wide_vana>;
+		dvdd-supply = <&vreg_l3c_1p2>;
+		dovdd-supply = <&vreg_l1c_1p8>;
 
 		clocks = <&camcc CAM_CC_MCLK0_CLK>;
 		clock-frequency = <19200000>;
