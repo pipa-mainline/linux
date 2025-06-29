@@ -60,7 +60,7 @@
 		charge-full-design-microamp-hours = <8840000>;
 		energy-full-design-microwatt-hours = <34300000>;
 		voltage-min-design-microvolt = <3400000>;
-		voltage-max-design-microvolt = <4470000>;
+		voltage-max-design-microvolt = <4370000>;
 	};
 
 	bl_vddpos_5p5: bl-vddpos-regulator {
