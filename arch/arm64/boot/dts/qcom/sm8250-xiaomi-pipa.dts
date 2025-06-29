@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include <dt-bindings/arm/qcom,ids.h>
+#include <dt-bindings/media/video-interfaces.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/usb/pd.h>
@@ -103,6 +104,21 @@
 		gpio = <&tlmm 13 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		regulator-boot-on;
+	};
+
+	camera_wide_vana: camera-wide-vana-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "camera_wide_vana";
+
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+
+		regulator-enable-ramp-delay = <135>;
+
+		enable-active-high;
+		gpio = <&tlmm 31 GPIO_ACTIVE_HIGH>;
+
+		vin-supply = <&vreg_bob>;
 	};
 
 	gpio_keys: gpio-keys {
@@ -440,7 +456,15 @@
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		/* L2 & L3 are unused. */
+		/* L2 is unused. */
+
+		vreg_l3c_1p2: ldo3 {
+			regulator-name = "vreg_l3c_1p2";
+			regulator-min-microvolt = <1200000>; // 800000
+			regulator-max-microvolt = <1200000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
 		vreg_l4c_1p8: ldo4 {
 			regulator-name = "vreg_l4c_1p8";
 			regulator-min-microvolt = <1800000>;
@@ -565,6 +589,62 @@
 &cdsp {
 	firmware-name = "qcom/sm8250/xiaomi/pipa/cdsp.mbn";
 	status = "okay";
+};
+
+&camcc {
+	status = "okay";
+};
+
+&camss {
+	vdda-phy-supply = <&vreg_l5a_0p88>;
+	vdda-pll-supply = <&vreg_l9a_1p2>;
+
+	status = "okay";
+
+	ports {
+		port@1 {
+			csiphy1_ep: endpoint {
+				clock-lanes = <7>;
+				data-lanes = <0 1 2 3>;
+				bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
+				remote-endpoint = <&camera_ov13b10_ep>;
+			};
+		};
+	};
+};
+
+&cci0 {
+	status = "okay";
+};
+
+&cci0_i2c0 {
+	camera_wide: camera@10 {
+		compatible = "ovti,ov13b10";
+		reg = <0x10>;
+
+		avdd-supply = <&camera_wide_vana>;
+		dvdd-supply = <&vreg_l3c_1p2>;
+		dovdd-supply = <&vreg_l1c_1p8>;
+
+		clocks = <&camcc CAM_CC_MCLK0_CLK>;
+		clock-frequency = <19200000>;
+
+		reset-gpios = <&tlmm 93 GPIO_ACTIVE_LOW>;
+		pinctrl-0 = <&mclk0_active>;
+		pinctrl-names = "default";
+
+		orientation = <1>; /* Rear facing */
+		rotation = <0>;
+
+		port {
+			camera_ov13b10_ep: endpoint {
+				data-lanes = <1 2 3 4>;
+				bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
+				link-frequencies = /bits/ 64 <560000000>;
+				remote-endpoint = <&csiphy1_ep>;
+			};
+		};
+	};
 };
 
 &gmu {
@@ -1027,6 +1107,13 @@
 		drive-strength = <2>;
 		bias-pull-up;
 		input-enable;
+	};
+
+	mclk0_active: mclk0-active-state {
+		pins = "gpio94";
+		function = "cam_mclk";
+		bias-disable;
+		drive-strength = <2>;
 	};
 
 	hall {
