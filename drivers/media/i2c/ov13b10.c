@@ -635,6 +635,8 @@ struct ov13b10 {
 
 	struct clk *img_clk;
 	struct regulator *avdd;
+	struct regulator *dvdd;
+	struct regulator *dovdd;
 	struct gpio_desc *reset;
 
 	/* V4L2 Controls */
@@ -1119,6 +1121,10 @@ static int ov13b10_power_off(struct device *dev)
 
 	if (ov13b10->avdd)
 		regulator_disable(ov13b10->avdd);
+	if (ov13b10->dvdd)
+		regulator_disable(ov13b10->dvdd);
+	if (ov13b10->dovdd)
+		regulator_disable(ov13b10->dovdd);
 
 	clk_disable_unprepare(ov13b10->img_clk);
 
@@ -1141,7 +1147,25 @@ static int ov13b10_power_on(struct device *dev)
 		ret = regulator_enable(ov13b10->avdd);
 		if (ret < 0) {
 			dev_err(dev, "failed to enable avdd: %d", ret);
-			clk_disable_unprepare(ov13b10->img_clk);
+			ov13b10_power_off(dev);
+			return ret;
+		}
+	}
+
+	if (ov13b10->dvdd) {
+		ret = regulator_enable(ov13b10->dvdd);
+		if (ret < 0) {
+			dev_err(dev, "failed to enable dvdd: %d", ret);
+			ov13b10_power_off(dev);
+			return ret;
+		}
+	}
+
+	if (ov13b10->dovdd) {
+		ret = regulator_enable(ov13b10->dovdd);
+		if (ret < 0) {
+			dev_err(dev, "failed to enable dovdd: %d", ret);
+			ov13b10_power_off(dev);
 			return ret;
 		}
 	}
@@ -1418,6 +1442,24 @@ static int ov13b10_get_pm_resources(struct device *dev)
 		if (ret != -ENODEV)
 			return dev_err_probe(dev, ret,
 					     "failed to get avdd regulator\n");
+	}
+
+	ov13b->dvdd = devm_regulator_get_optional(dev, "dvdd");
+	if (IS_ERR(ov13b->dvdd)) {
+		ret = PTR_ERR(ov13b->dvdd);
+		ov13b->dvdd = NULL;
+		if (ret != -ENODEV)
+			return dev_err_probe(dev, ret,
+					     "failed to get dvdd regulator\n");
+	}
+
+	ov13b->dovdd = devm_regulator_get_optional(dev, "dovdd");
+	if (IS_ERR(ov13b->dovdd)) {
+		ret = PTR_ERR(ov13b->dovdd);
+		ov13b->dovdd = NULL;
+		if (ret != -ENODEV)
+			return dev_err_probe(dev, ret,
+					     "failed to get dovdd regulator\n");
 	}
 
 	return 0;
