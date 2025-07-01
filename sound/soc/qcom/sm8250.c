@@ -102,7 +102,7 @@ static int sm8250_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	rate->min = rate->max = 48000;
 	channels->min = channels->max = 4;
-	snd_mask_set_format(fmt, SNDRV_PCM_FORMAT_S16_LE);
+	snd_mask_set_format(fmt, SNDRV_PCM_FORMAT_S32_LE);
 
 	return 0;
 }

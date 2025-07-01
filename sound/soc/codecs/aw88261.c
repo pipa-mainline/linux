@@ -161,7 +161,7 @@ static int aw88261_dev_get_iis_status(struct aw_device *aw_dev)
 	bool clks_available = (reg_val & (1 << 5)) == 0x0000;
 
 	if (pll_lock && clks_available) {
-		dev_dbg(aw_dev->dev, "IIS signal is OK");
+		// dev_dbg(aw_dev->dev, "IIS signal is OK");
 		ret = 0;
 	} else {
 		dev_err(aw_dev->dev,
