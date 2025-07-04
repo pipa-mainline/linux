@@ -1391,116 +1391,32 @@ static int bq2597x_parse_dt(struct bq2597x *bq, struct device *dev)
 	return 0;
 }
 
-static int bq2597x_init_protection(struct bq2597x *bq)
+static void bq2597x_init_protection(struct bq2597x *bq)
 {
-	int ret;
-
-	ret = bq2597x_enable_batovp(bq, !bq->cfg->bat_ovp_disable);
-	bq_info("%s bat ovp %s\n",
-		bq->cfg->bat_ovp_disable ? "disable" : "enable",
-		!ret ? "successfullly" : "failed");
-
-	ret = bq2597x_enable_batocp(bq, !bq->cfg->bat_ocp_disable);
-	bq_info("%s bat ocp %s\n",
-		bq->cfg->bat_ocp_disable ? "disable" : "enable",
-		!ret ? "successfullly" : "failed");
-
-	ret = bq2597x_enable_batovp_alarm(bq, !bq->cfg->bat_ovp_alm_disable);
-	bq_info("%s bat ovp alarm %s\n",
-		bq->cfg->bat_ovp_alm_disable ? "disable" : "enable",
-		!ret ? "successfullly" : "failed");
-
-	ret = bq2597x_enable_batocp_alarm(bq, !bq->cfg->bat_ocp_alm_disable);
-	bq_info("%s bat ocp alarm %s\n",
-		bq->cfg->bat_ocp_alm_disable ? "disable" : "enable",
-		!ret ? "successfullly" : "failed");
-
-	ret = bq2597x_enable_batucp_alarm(bq, !bq->cfg->bat_ucp_alm_disable);
-	bq_info("%s bat ocp alarm %s\n",
-		bq->cfg->bat_ucp_alm_disable ? "disable" : "enable",
-		!ret ? "successfullly" : "failed");
-
-	ret = bq2597x_enable_busovp_alarm(bq, !bq->cfg->bus_ovp_alm_disable);
-	bq_info("%s bus ovp alarm %s\n",
-		bq->cfg->bus_ovp_alm_disable ? "disable" : "enable",
-		!ret ? "successfullly" : "failed");
-
-	ret = bq2597x_enable_busocp(bq, !bq->cfg->bus_ocp_disable);
-	bq_info("%s bus ocp %s\n",
-		bq->cfg->bus_ocp_disable ? "disable" : "enable",
-		!ret ? "successfullly" : "failed");
-
-	ret = bq2597x_enable_busocp_alarm(bq, !bq->cfg->bus_ocp_alm_disable);
-	bq_info("%s bus ocp alarm %s\n",
-		bq->cfg->bus_ocp_alm_disable ? "disable" : "enable",
-		!ret ? "successfullly" : "failed");
-
-	ret = bq2597x_enable_bat_therm(bq, !bq->cfg->bat_therm_disable);
-	bq_info("%s bat therm %s\n",
-		bq->cfg->bat_therm_disable ? "disable" : "enable",
-		!ret ? "successfullly" : "failed");
-
-	ret = bq2597x_enable_bus_therm(bq, !bq->cfg->bus_therm_disable);
-	bq_info("%s bus therm %s\n",
-		bq->cfg->bus_therm_disable ? "disable" : "enable",
-		!ret ? "successfullly" : "failed");
-
-	ret = bq2597x_enable_die_therm(bq, !bq->cfg->die_therm_disable);
-	bq_info("%s die therm %s\n",
-		bq->cfg->die_therm_disable ? "disable" : "enable",
-		!ret ? "successfullly" : "failed");
-
-	ret = bq2597x_set_batovp_th(bq, bq->cfg->bat_ovp_th);
-	bq_info("set bat ovp th %d %s\n", bq->cfg->bat_ovp_th,
-		!ret ? "successfully" : "failed");
-
-	ret = bq2597x_set_batovp_alarm_th(bq, bq->cfg->bat_ovp_alm_th);
-	bq_info("set bat ovp alarm threshold %d %s\n", bq->cfg->bat_ovp_alm_th,
-		!ret ? "successfully" : "failed");
-
-	ret = bq2597x_set_batocp_th(bq, bq->cfg->bat_ocp_th);
-	bq_info("set bat ocp threshold %d %s\n", bq->cfg->bat_ocp_th,
-		!ret ? "successfully" : "failed");
-
-	ret = bq2597x_set_batocp_alarm_th(bq, bq->cfg->bat_ocp_alm_th);
-	bq_info("set bat ocp alarm threshold %d %s\n", bq->cfg->bat_ocp_alm_th,
-		!ret ? "successfully" : "failed");
-
-	ret = bq2597x_set_busovp_th(bq, bq->cfg->bus_ovp_th);
-	bq_info("set bus ovp threshold %d %s\n", bq->cfg->bus_ovp_th,
-		!ret ? "successfully" : "failed");
-
-	ret = bq2597x_set_busovp_alarm_th(bq, bq->cfg->bus_ovp_alm_th);
-	bq_info("set bus ovp alarm threshold %d %s\n", bq->cfg->bus_ovp_alm_th,
-		!ret ? "successfully" : "failed");
-
-	ret = bq2597x_set_busocp_th(bq, bq->cfg->bus_ocp_th);
-	bq_info("set bus ocp threshold %d %s\n", bq->cfg->bus_ocp_th,
-		!ret ? "successfully" : "failed");
-
-	ret = bq2597x_set_busocp_alarm_th(bq, bq->cfg->bus_ocp_alm_th);
-	bq_info("set bus ocp alarm th %d %s\n", bq->cfg->bus_ocp_alm_th,
-		!ret ? "successfully" : "failed");
-
-	ret = bq2597x_set_batucp_alarm_th(bq, bq->cfg->bat_ucp_alm_th);
-	bq_info("set bat ucp threshold %d %s\n", bq->cfg->bat_ucp_alm_th,
-		!ret ? "successfully" : "failed");
-
-	ret = bq2597x_set_bat_therm_th(bq, bq->cfg->bat_therm_th);
-	bq_info("set die therm threshold %d %s\n", bq->cfg->bat_therm_th,
-		!ret ? "successfully" : "failed");
-	ret = bq2597x_set_bus_therm_th(bq, bq->cfg->bus_therm_th);
-	bq_info("set bus therm threshold %d %s\n", bq->cfg->bus_therm_th,
-		!ret ? "successfully" : "failed");
-	ret = bq2597x_set_die_therm_th(bq, bq->cfg->die_therm_th);
-	bq_info("set die therm threshold %d %s\n", bq->cfg->die_therm_th,
-		!ret ? "successfully" : "failed");
-
-	ret = bq2597x_set_acovp_th(bq, bq->cfg->ac_ovp_th);
-	bq_info("set ac ovp threshold %d %s\n", bq->cfg->ac_ovp_th,
-		!ret ? "successfully" : "failed");
-
-	return 0;
+	bq2597x_enable_batovp(bq, !bq->cfg->bat_ovp_disable);
+	bq2597x_enable_batocp(bq, !bq->cfg->bat_ocp_disable);
+	bq2597x_enable_batovp_alarm(bq, !bq->cfg->bat_ovp_alm_disable);
+	bq2597x_enable_batocp_alarm(bq, !bq->cfg->bat_ocp_alm_disable);
+	bq2597x_enable_batucp_alarm(bq, !bq->cfg->bat_ucp_alm_disable);
+	bq2597x_enable_busovp_alarm(bq, !bq->cfg->bus_ovp_alm_disable);
+	bq2597x_enable_busocp(bq, !bq->cfg->bus_ocp_disable);
+	bq2597x_enable_busocp_alarm(bq, !bq->cfg->bus_ocp_alm_disable);
+	bq2597x_enable_bat_therm(bq, !bq->cfg->bat_therm_disable);
+	bq2597x_enable_bus_therm(bq, !bq->cfg->bus_therm_disable);
+	bq2597x_enable_die_therm(bq, !bq->cfg->die_therm_disable);
+	bq2597x_set_batovp_th(bq, bq->cfg->bat_ovp_th);
+	bq2597x_set_batovp_alarm_th(bq, bq->cfg->bat_ovp_alm_th);
+	bq2597x_set_batocp_th(bq, bq->cfg->bat_ocp_th);
+	bq2597x_set_batocp_alarm_th(bq, bq->cfg->bat_ocp_alm_th);
+	bq2597x_set_busovp_th(bq, bq->cfg->bus_ovp_th);
+	bq2597x_set_busovp_alarm_th(bq, bq->cfg->bus_ovp_alm_th);
+	bq2597x_set_busocp_th(bq, bq->cfg->bus_ocp_th);
+	bq2597x_set_busocp_alarm_th(bq, bq->cfg->bus_ocp_alm_th);
+	bq2597x_set_batucp_alarm_th(bq, bq->cfg->bat_ucp_alm_th);
+	bq2597x_set_bat_therm_th(bq, bq->cfg->bat_therm_th);
+	bq2597x_set_bus_therm_th(bq, bq->cfg->bus_therm_th);
+	bq2597x_set_die_therm_th(bq, bq->cfg->die_therm_th);
+	bq2597x_set_acovp_th(bq, bq->cfg->ac_ovp_th);
 }
 
 static int bq2597x_init_adc(struct bq2597x *bq)
@@ -1594,7 +1510,6 @@ static int bq2597x_init_device(struct bq2597x *bq)
 static int bq2597x_set_present(struct bq2597x *bq, bool present)
 {
     if (present != bq->usb_present) {
-        bq_info("changed usb_present [%d] -> [%d]\n", bq->usb_present, present);
         if (present) {
             bq2597x_init_device(bq);
         }
@@ -1881,22 +1796,17 @@ static void bq2597x_check_alarm_status(struct bq2597x *bq)
 
 	ret = bq2597x_read_byte(bq, BQ2597X_REG_08, &flag);
 	if (!ret && (flag & BQ2597X_IBUS_UCP_FALL_FLAG_MASK))
-		bq_info("UCP_FLAG =0x%02X\n",
-			!!(flag & BQ2597X_IBUS_UCP_FALL_FLAG_MASK));
+		bq_info("under-current-alarm was triggered!\n");
 
 	ret = bq2597x_read_byte(bq, BQ2597X_REG_2D, &flag);
 	if (!ret && (flag & BQ2597X_VDROP_OVP_FLAG_MASK))
-		bq_info("VDROP_OVP_FLAG =0x%02X\n",
-			!!(flag & BQ2597X_VDROP_OVP_FLAG_MASK));
+		bq_info("vbus was dropped!\n");
 
 	/*read to clear alarm flag*/
 	ret = bq2597x_read_byte(bq, BQ2597X_REG_0E, &flag);
-	if (!ret && flag)
-		bq_info("INT_FLAG =0x%02X\n", flag);
 
 	ret = bq2597x_read_byte(bq, BQ2597X_REG_0D, &stat);
 	if (!ret && stat != bq->prev_alarm) {
-		bq_info("INT_STAT = 0X%02x\n", stat);
 		bq->prev_alarm = stat;
 		bq->bat_ovp_alarm = !!(stat & BAT_OVP_ALARM);
 		bq->bat_ocp_alarm = !!(stat & BAT_OCP_ALARM);
@@ -1907,14 +1817,11 @@ static void bq2597x_check_alarm_status(struct bq2597x *bq)
 		bq->bat_ucp_alarm = !!(stat & BAT_UCP_ALARM);
 	}
 
-
 	ret = bq2597x_read_byte(bq, BQ2597X_REG_08, &stat);
 	if (!ret && (stat & 0x50))
-		bq_err("Reg[08]BUS_UCPOVP = 0x%02X\n", stat);
+		bq_err("ucp-ovp alarm was triggered!\n");
 
 	ret = bq2597x_read_byte(bq, BQ2597X_REG_0A, &stat);
-	if (!ret && (stat & 0x02))
-		bq_err("Reg[0A]CONV_OCP = 0x%02X\n", stat);
 
 	mutex_unlock(&bq->data_lock);
 }
@@ -1929,14 +1836,14 @@ static void bq2597x_check_fault_status(struct bq2597x *bq)
 	mutex_lock(&bq->data_lock);
 
 	ret = bq2597x_read_byte(bq, BQ2597X_REG_10, &stat);
-	if (!ret && stat)
-		bq_err("FAULT_STAT = 0x%02X\n", stat);
+	if (ret)
+		return;
 
 	ret = bq2597x_read_byte(bq, BQ2597X_REG_11, &flag);
-	if (!ret && flag)
-		bq_err("FAULT_FLAG = 0x%02X\n", flag);
+	if (ret)
+		return;
 
-	if (!ret && flag != bq->prev_fault) {
+	if (flag != bq->prev_fault) {
 		changed = true;
 		bq->prev_fault = flag;
 		bq->bat_ovp_fault = !!(flag & BAT_OVP_FAULT);
@@ -1948,6 +1855,14 @@ static void bq2597x_check_fault_status(struct bq2597x *bq)
 
 		bq->bat_therm_alarm = !!(flag & TBUS_TBAT_ALARM);
 		bq->bus_therm_alarm = !!(flag & TBUS_TBAT_ALARM);
+
+		if (bq->bus_ocp_fault) {
+			bq_err("over-current-protection was triggered!\n")
+		}
+
+		if (bq->bus_ovp_fault) {
+			bq_err("over-current-protection was triggered!\n");
+		}
 	}
 
 	mutex_unlock(&bq->data_lock);
@@ -1960,8 +1875,6 @@ static void bq2597x_check_fault_status(struct bq2597x *bq)
 static irqreturn_t bq2597x_charger_interrupt(int irq, void *dev_id)
 {
 	struct bq2597x *bq = dev_id;
-
-	bq_info("INT OCCURED\n");
 
 	mutex_lock(&bq->irq_complete);
 	bq->irq_waiting = true;
@@ -1976,9 +1889,7 @@ static irqreturn_t bq2597x_charger_interrupt(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 	bq->irq_waiting = false;
-	/* dump some impoartant registers and alarm fault status for debug */
-	bq2597x_dump_important_regs(bq);
-	bq2597x_check_alarm_status(bq);
+
 	bq2597x_check_fault_status(bq);
 	mutex_unlock(&bq->irq_complete);
 
