@@ -3925,6 +3925,61 @@ static int tcpm_pd_select_pdo(struct tcpm_port *port, int *sink_pdo,
 	 * Select the source PDO providing the most power which has a
 	 * matchig sink cap.
 	 */
+	bool src_pps_pdo_found = false;
+	bool sink_pps_pdo_found = false;
+	bool force_pps = true;
+
+	if (force_pps) {
+		for (i = 0; i <= port->nr_source_caps; i++) {
+			u32 pdo = port->source_caps[i];
+			enum pd_pdo_type type = pdo_type(pdo);
+
+			switch (type) {
+			case PDO_TYPE_APDO:
+				if (pdo_apdo_type(pdo) == APDO_TYPE_PPS) {
+					tcpm_log(port, "Source PPS PDO Index: %d", i);
+					*src_pdo = i;
+					src_pps_pdo_found = true;
+					port->pps_data.supported = true;
+					port->usb_type =
+						POWER_SUPPLY_USB_TYPE_PD_PPS;
+					power_supply_changed(port->psy);
+					break;
+				}
+				continue;
+			default:
+				continue;
+			}
+		}
+
+		if (src_pps_pdo_found) {
+			tcpm_log(port, "Source supports PPS, forcing it...");
+
+			for (i = 0; i <= port->nr_snk_pdo; i++) {
+				u32 pdo = port->snk_pdo[i];
+				switch (pdo_type(pdo)) {
+					case PDO_TYPE_APDO:
+					tcpm_log(port, "Sink PPS PDO Index: %d", i);
+					sink_pps_pdo_found = true;
+					*sink_pdo = i;
+					break;
+					default:
+						continue;
+				}
+				if (sink_pps_pdo_found) break;
+			}
+
+			if (sink_pps_pdo_found) {
+				tcpm_log(port, "Sink supports PPS, forcing it...");
+				return 0;
+			} else {
+				tcpm_log(port, "Sink doesn't support PPS");
+			}
+		} else {
+			tcpm_log(port, "Source doesn't support PPS");
+		}
+	}
+
 	for (i = 0; i < port->nr_source_caps; i++) {
 		u32 pdo = port->source_caps[i];
 		enum pd_pdo_type type = pdo_type(pdo);
@@ -3940,7 +3995,7 @@ static int tcpm_pd_select_pdo(struct tcpm_port *port, int *sink_pdo,
 			min_src_mv = pdo_min_voltage(pdo);
 			break;
 		case PDO_TYPE_APDO:
-			if (pdo_apdo_type(pdo) == APDO_TYPE_PPS) {
+			if (pdo_apdo_type(pdo) == APDO_TYPE_PPS && !force_pps) {
 				port->pps_data.supported = true;
 				port->usb_type =
 					POWER_SUPPLY_USB_TYPE_PD_PPS;
@@ -4064,8 +4119,10 @@ static int tcpm_pd_build_request(struct tcpm_port *port, u32 *rdo)
 	int ret;
 
 	ret = tcpm_pd_select_pdo(port, &snk_pdo_index, &src_pdo_index);
-	if (ret < 0)
+	if (ret < 0) {
+		tcpm_log(port, "Failed to select pdo!");
 		return ret;
+	}
 
 	pdo = port->source_caps[src_pdo_index];
 	matching_snk_pdo = port->snk_pdo[snk_pdo_index];
@@ -4079,6 +4136,9 @@ static int tcpm_pd_build_request(struct tcpm_port *port, u32 *rdo)
 	case PDO_TYPE_VAR:
 		mv = pdo_min_voltage(pdo);
 		break;
+	case PDO_TYPE_APDO:
+		mv = pdo_pps_apdo_max_voltage(matching_snk_pdo);
+		break;
 	default:
 		tcpm_log(port, "Invalid PDO selected!");
 		return -EINVAL;
@@ -4088,6 +4148,9 @@ static int tcpm_pd_build_request(struct tcpm_port *port, u32 *rdo)
 	if (type == PDO_TYPE_BATT) {
 		mw = min_power(pdo, matching_snk_pdo);
 		ma = 1000 * mw / mv;
+	} else if (type == PDO_TYPE_APDO) {
+		ma = pdo_pps_apdo_max_current(matching_snk_pdo);
+		mw = ma * mv / 1000;
 	} else {
 		ma = min_current(pdo, matching_snk_pdo);
 		mw = ma * mv / 1000;
@@ -4119,6 +4182,11 @@ static int tcpm_pd_build_request(struct tcpm_port *port, u32 *rdo)
 		tcpm_log(port, "Requesting PDO %d: %u mV, %u mW%s",
 			 src_pdo_index, mv, mw,
 			 flags & RDO_CAP_MISMATCH ? " [mismatch]" : "");
+	} else if (type == PDO_TYPE_APDO) {
+		*rdo = RDO_PROG(src_pdo_index + 1, mv, ma, flags);
+		tcpm_log(port, "Requesting PPS PDO %d: %u mV, %u mA%s",
+				src_pdo_index, mv, ma,
+				flags & RDO_CAP_MISMATCH ? " [mismatch]" : "");
 	} else {
 		*rdo = RDO_FIXED(src_pdo_index + 1, ma, max_ma, flags);
 
