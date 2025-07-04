@@ -887,8 +887,8 @@
 		ti,bq2597x,bat-ovp-alarm-threshold = <4525>;
 		//ti,bq2597x,bat-ocp-threshold = <8000>;
 		//ti,bq2597x,bat-ocp-alarm-threshold = <7500>;
-		ti,bq2597x,bus-ovp-threshold = <12000>;
-		ti,bq2597x,bus-ovp-alarm-threshold = <11000>;
+		ti,bq2597x,bus-ovp-threshold = <12300>;
+		ti,bq2597x,bus-ovp-alarm-threshold = <123000>;
 		ti,bq2597x,bus-ocp-threshold = <3800>;
 		ti,bq2597x,bus-ocp-alarm-threshold = <3500>;
 
@@ -1063,7 +1063,7 @@
 				       PDO_FIXED_DUAL_ROLE |
 				       PDO_FIXED_USB_COMM |
 				       PDO_FIXED_DATA_SWAP)
-				       PDO_VAR(5000, 9000, 5000)>;
+				       PDO_VAR(5000, 12000, 3000)>;
 
 		altmodes {
 			displayport {
