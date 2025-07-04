@@ -322,6 +322,58 @@ struct bq2597x {
     //struct delayed_work status_changed_work;
 };
 
+struct adc_desc {
+	u8 reg;
+	u16 mask;
+	int step;
+	int rate;
+};
+
+#define SC8551_ADC_IBUS_REG			0x16
+#define SC8551_ADC_IBUS_MASK		GENMASK(11, 0)
+#define SC8551_ADC_IBUS_LSB			15625
+#define SC8551_ADC_IBUS_RATE		10000
+
+#define SC8551_ADC_VBUS_REG			0x18
+#define SC8551_ADC_VBUS_MASK		GENMASK(11, 0)
+#define SC8551_ADC_VBUS_LSB			375
+#define SC8551_ADC_VBUS_RATE		100
+
+#define SC8551_ADC_VAC_REG			0x1a
+#define SC8551_ADC_VAC_MASK			GENMASK(11, 0)
+#define SC8551_ADC_VAC_LSB			5
+#define SC8551_ADC_VAC_RATE			1
+
+#define SC8551_ADC_VOUT_REG			0x1c
+#define SC8551_ADC_VOUT_MASK		GENMASK(11, 0)
+#define SC8551_ADC_VOUT_LSB			125
+#define SC8551_ADC_VOUT_RATE		100
+
+#define SC8551_ADC_VBAT_REG			0x1e
+#define SC8551_ADC_VBAT_MASK		GENMASK(11, 0)
+#define SC8551_ADC_VBAT_LSB			125
+#define SC8551_ADC_VBAT_RATE		100
+
+#define SC8551_ADC_IBAT_REG			0x20
+#define SC8551_ADC_IBAT_MASK		GENMASK(11, 0)
+#define SC8551_ADC_IBAT_LSB			3125
+#define SC8551_ADC_IBAT_RATE		1000
+
+#define SC8551_ADC_TDIE_REG			0x26
+#define SC8551_ADC_TDIE_MASK		GENMASK(8, 0)
+#define SC8551_ADC_TDIE_LSB			5
+#define SC8551_ADC_TDIE_RATE		1
+
+static struct adc_desc adc_desc_table[] = {
+	[ADC_IBUS] = {SC8551_ADC_IBUS_REG, SC8551_ADC_IBUS_MASK, SC8551_ADC_IBUS_LSB, SC8551_ADC_IBUS_RATE},
+	[ADC_VBUS] = {SC8551_ADC_VBUS_REG, SC8551_ADC_VBUS_MASK, SC8551_ADC_VBUS_LSB, SC8551_ADC_VBUS_RATE},
+	[ADC_VAC] = {SC8551_ADC_VAC_REG, SC8551_ADC_VAC_MASK, SC8551_ADC_VAC_LSB, SC8551_ADC_VAC_RATE},
+	[ADC_VOUT] = {SC8551_ADC_VOUT_REG, SC8551_ADC_VOUT_MASK, SC8551_ADC_VOUT_LSB, SC8551_ADC_VOUT_RATE},
+	[ADC_VBAT] = {SC8551_ADC_VBAT_REG, SC8551_ADC_VBAT_MASK, SC8551_ADC_VBAT_LSB, SC8551_ADC_VBAT_RATE},
+	[ADC_IBAT] = {SC8551_ADC_IBAT_REG, SC8551_ADC_IBAT_MASK, SC8551_ADC_IBAT_LSB, SC8551_ADC_IBAT_RATE},
+	[ADC_TDIE] = {SC8551_ADC_TDIE_REG, SC8551_ADC_TDIE_MASK, SC8551_ADC_TDIE_LSB, SC8551_ADC_TDIE_RATE},
+};
+
 static int bq2597x_set_acovp_th(struct bq2597x *bq, int threshold);
 static int bq2597x_set_busovp_th(struct bq2597x *bq, int threshold);
 
@@ -1559,62 +1611,45 @@ static ssize_t bq2597x_store_register(struct device *dev,
 	return count;
 }
 
+
+static int sc8551_read_adc(struct bq2597x *bq, int channel, int *value)
+{
+	int tchg_result = 0, ret = 0;
+	u8 data[2] = {0, 0};
+	u16 abs_value = 0;
+
+	if (channel < ADC_IBUS || channel > ADC_TDIE) {
+		bq_err("not support ADC channel\n");
+		return -1;
+	}
+
+	// read 2 bytes
+	ret = bq2597x_read_byte(bq, adc_desc_table[channel].reg, &data[0]);
+	ret = bq2597x_read_byte(bq, adc_desc_table[channel].reg, &data[1]);
+
+	if (ret) {
+		bq_err("I2C failed to read ADC\n");
+		return -1;
+	}
+
+	if (channel == ADC_TDIE) {
+		abs_value = ((data[0] & 0x7F) << 8) | data[1];
+		tchg_result = abs_value * adc_desc_table[ADC_TDIE].step / adc_desc_table[ADC_TDIE].rate;
+		if (data[0] & 0x80)
+			*value = -tchg_result;
+		else
+			*value = tchg_result;
+	} else {
+		*value = ((((data[0] << 8) + data[1]) & adc_desc_table[channel].mask) * adc_desc_table[channel].step) / adc_desc_table[channel].rate;
+	}
+
+	return ret;
+}
+
 static DEVICE_ATTR(registers, 0660, bq2597x_show_registers, bq2597x_store_register);
 
-#ifdef CONFIG_DUAL_BQ2597X
-static ssize_t bq2597x_show_diff_ti_bus_current(struct device *dev,struct device_attribute *attr,char *buf)
-{
-	struct bq2597x *bq = dev_get_drvdata(dev);
-	static struct power_supply *bq2597x_slave = NULL;
-	int diff_ti_bus_current = -1;
-	int ti_bus_current_master = 0;
-	int ti_bus_current_slave = 0;
-	int result = 0;
-	int rc;
-	int len;
-	union power_supply_propval pval = {
-		0,
-	};
-	if(bq->mode == BQ25970_ROLE_MASTER){
-		/*get bq2597x_slave ti_bus_current*/
-		if(!bq2597x_slave){
-			bq2597x_slave = power_supply_get_by_name("bq2597x-slave");
-			if(!bq2597x_slave){
-				bq_dbg("failed get bq2597x-slave \n");
-				return 0;
-			}
-			bq_dbg("success get bq2597x-slave \n");
-		}
-		rc = power_supply_get_property(bq2597x_slave,POWER_SUPPLY_PROP_TI_BUS_CURRENT,&pval);
-		if (rc < 0) {
-			bq_dbg("failed get bq2597x-slave ti_bus_current \n");
-			return -EINVAL;
-		}
-		ti_bus_current_slave = pval.intval;
-		/*get bq2597x_master ti_bus_current*/
-		rc = bq2597x_get_adc_data(bq, ADC_IBUS, &result);
-		if (!rc)
-			ti_bus_current_master = result;
-		else
-			ti_bus_current_master = bq->ibus_curr;
-		/* get diff_ti_bus_current = ti_bus_current_master - ti_bus_current_slave */
-		if(ti_bus_current_master > ti_bus_current_slave)
-			diff_ti_bus_current = ti_bus_current_master - ti_bus_current_slave;
-		else
-			diff_ti_bus_current = ti_bus_current_slave - ti_bus_current_master;
-	} else if (bq->mode == BQ25970_ROLE_SLAVE) {
-		diff_ti_bus_current = -1;
-	}
-	len = snprintf(buf, 1024, "%d\n", diff_ti_bus_current);
-	return len;
-}
-static DEVICE_ATTR(diff_ti_bus_current,0660,bq2597x_show_diff_ti_bus_current,NULL);
-#endif
 static struct attribute *bq2597x_attributes[] = {
 	&dev_attr_registers.attr,
-#ifdef CONFIG_DUAL_BQ2597X
-	&dev_attr_diff_ti_bus_current.attr,
-#endif
 	NULL,
 };
 
@@ -1626,6 +1661,8 @@ static enum power_supply_property bq2597x_charger_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_MODEL_NAME,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_CURRENT_NOW,
 };
 static void bq2597x_check_alarm_status(struct bq2597x *bq);
 static void bq2597x_check_fault_status(struct bq2597x *bq);
@@ -1647,17 +1684,29 @@ static int bq2597x_charger_get_property(struct power_supply *psy,
 		val->intval = bq->usb_present;
 		break;
 	case POWER_SUPPLY_PROP_MODEL_NAME:
-		ret = bq2597x_get_work_mode(bq, &bq->mode);
-		if (ret) {
-			val->strval = "unknown";
-		} else {
-			if (bq->mode == BQ25970_ROLE_MASTER)
-				val->strval = "bq2597x-master";
-			else if (bq->mode == BQ25970_ROLE_SLAVE)
-				val->strval = "bq2597x-slave";
-			else
-				val->strval = "bq2597x-standalone";
+		val->strval = "sc8551";
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		bq2597x_check_charge_enabled(bq, &result);
+		if (!result) {
+			val->intval = 0;
+			break;
 		}
+		ret = sc8551_read_adc(bq, ADC_VBUS, &val->intval);
+		if (ret) {
+			val->intval = 0;
+			break;
+		}
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		bq2597x_check_charge_enabled(bq, &result);
+		if (!result) {
+			val->intval = 0;
+			break;
+		}
+		ret = sc8551_read_adc(bq, ADC_IBUS, &val->intval);
+		if (ret)
+			val->intval = 0;
 		break;
 	default:
 		return -EINVAL;
