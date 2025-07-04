@@ -1235,6 +1235,8 @@
 &pm8150b_fg {
 	status = "okay";
 	monitored-battery = <&battery>;
+
+	power-supplies = <&pm8150b_charger>;
 };
 
 &pm8150b_charger {
