@@ -900,6 +900,8 @@
 		//ti,bq2597x,sense-resistor-mohm = <2>;
 
 		sc8551,ac-ovp-threshold = <14>;
+
+		upstream-charger = <&pm8150b_charger>;
 	};
 };
 
