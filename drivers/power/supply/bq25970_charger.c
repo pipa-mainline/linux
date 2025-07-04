@@ -316,7 +316,7 @@ struct bq2597x {
 	struct power_supply_desc psy_desc;
 	struct power_supply_config psy_cfg;
 	struct power_supply *fc2_psy;
-	struct power_supply *typec_psy;
+	struct power_supply *upstream_psy;
 
     struct notifier_block nb;
     //struct delayed_work status_changed_work;
@@ -1232,8 +1232,6 @@ static int bq2597x_get_work_mode(struct bq2597x *bq, int *mode)
 	else
 		*mode = BQ25970_ROLE_STDALONE;
 
-	bq_info("work mode:%s\n", *mode == BQ25970_ROLE_STDALONE ? "Standalone" :
-			(*mode == BQ25970_ROLE_SLAVE ? "Slave" : "Master"));
 	return ret;
 }
 
@@ -1761,6 +1759,9 @@ static int bq2597x_charger_set_property(struct power_supply *psy,
 	struct bq2597x *bq = power_supply_get_drvdata(psy);
 
 	switch (prop) {
+	case POWER_SUPPLY_PROP_STATUS:
+		bq2597x_enable_charge(bq, !!val->intval);
+		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 		bq2597x_set_present(bq, !!val->intval);
 		break;
@@ -1777,6 +1778,10 @@ static int bq2597x_charger_is_writeable(struct power_supply *psy,
 	int ret;
 
 	switch (prop) {
+	case POWER_SUPPLY_PROP_STATUS:
+	case POWER_SUPPLY_PROP_PRESENT:
+		ret = 1;
+		break;
 	//case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 	//case POWER_SUPPLY_PROP_TI_SET_BUS_PROTECTION_FOR_QC3:
 	//	ret = 1;
@@ -2074,7 +2079,7 @@ static int bq2597x_notifier_call(struct notifier_block *nb,
 	struct power_supply *psy = v;
 	union power_supply_propval propval;
 
-	if (psy == chip->typec_psy) {
+	if (psy == chip->upstream_psy) {
 		power_supply_get_property(psy, POWER_SUPPLY_PROP_ONLINE, &propval);
 
 		chip->charge_state = propval.intval;
@@ -2132,6 +2137,31 @@ static int bq2597x_charger_probe(struct i2c_client *client)
 		return -ENODEV;
 	}
 
+	int32_t retry_count = 0;
+
+	while (!bq->upstream_psy) {
+		if(retry_count > 5) {
+			ret = -EPROBE_DEFER;
+			dev_err(bq->dev,
+				"upstream charger wait failed, deferring...\n");
+			return ret;
+		}
+		bq->upstream_psy = power_supply_get_by_phandle(bq->dev->of_node,
+							"upstream-charger");
+		dev_err(bq->dev,
+				"upstream charger is not ready, retry count: %d\n", retry_count);
+		retry_count++;
+		msleep(200);
+	}
+	dev_info(bq->dev, "Got upstream charger: %s\n", bq->upstream_psy->desc->name);
+	bq->nb.notifier_call = bq2597x_notifier_call;
+	ret = power_supply_reg_notifier(&bq->nb);
+	if (ret) {
+		dev_err(bq->dev,
+			"Failed to register notifier: %d\n", ret);
+		return ret;
+	}
+
 	bq2597x_get_work_mode(bq, &bq->mode);
 
 	if (bq->mode !=  *(int *)match->data) {
@@ -2179,27 +2209,10 @@ static int bq2597x_charger_probe(struct i2c_client *client)
 	}
 
 	/* determine_initial_status(bq); */
+	
 
 	bq_info("bq2597x probe successfully, Part Num:%d\n!",
 				bq->part_no);
-
-	bq->typec_psy = power_supply_get_by_name(
-			"tcpm-source-psy-c440000.spmi:pmic@2:typec@1500");
-	if (IS_ERR(bq->typec_psy)) {
-		ret = PTR_ERR(bq->typec_psy);
-		dev_warn(bq->dev, "Failed to get USB Type-C: %d\n", ret);
-		bq->typec_psy = NULL;
-	}
-
-	if (bq->typec_psy) {
-		bq->nb.notifier_call = bq2597x_notifier_call;
-		ret = power_supply_reg_notifier(&bq->nb);
-		if (ret) {
-			dev_err(bq->dev,
-				"Failed to register notifier: %d\n", ret);
-			return ret;
-		}
-	}
 
 	return 0;
 
