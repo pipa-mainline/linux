@@ -1697,6 +1697,8 @@ static int bq2597x_charger_get_property(struct power_supply *psy,
 			val->intval = 0;
 			break;
 		}
+		// uV
+		val->intval *= 1000;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		bq2597x_check_charge_enabled(bq, &result);
@@ -1707,6 +1709,9 @@ static int bq2597x_charger_get_property(struct power_supply *psy,
 		ret = sc8551_read_adc(bq, ADC_IBUS, &val->intval);
 		if (ret)
 			val->intval = 0;
+		
+		// uA (calibrated value, 2.7 mult)
+		val->intval *= 270;
 		break;
 	default:
 		return -EINVAL;
