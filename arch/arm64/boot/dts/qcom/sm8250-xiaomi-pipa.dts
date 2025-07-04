@@ -1052,7 +1052,7 @@
 		try-power-role = "sink";
 		self-powered;
 
-		op-sink-microwatt = <60000000>;
+		op-sink-microwatt = <36000000>;
 
 		source-pdos = <PDO_FIXED(5000, 3000,
 					  PDO_FIXED_DUAL_ROLE |
@@ -1063,7 +1063,14 @@
 				       PDO_FIXED_DUAL_ROLE |
 				       PDO_FIXED_USB_COMM |
 				       PDO_FIXED_DATA_SWAP)
-				       PDO_VAR(5000, 12000, 3000)>;
+				       PDO_VAR(5000, 12000, 3000)
+				       PDO_PPS_APDO(5000, 10200, 3000)>;
+                    /* HACK:
+                     * SC8551 lacks current limit control
+                     * Downstream fully relies on Xiaomi charger, managing current limit via MI-PD
+                     * Most standard PD chargers ignore current limit, expecting the device to handle it
+                     * We trigger PPS 10.2V to get 3.3A, achieving 33W charging
+                     */
 
 		altmodes {
 			displayport {
