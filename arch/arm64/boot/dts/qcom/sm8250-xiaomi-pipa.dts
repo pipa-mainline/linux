@@ -1063,7 +1063,8 @@
 				       PDO_FIXED_DUAL_ROLE |
 				       PDO_FIXED_USB_COMM |
 				       PDO_FIXED_DATA_SWAP)
-				       PDO_VAR(5000, 9000, 3000)>;
+				       PDO_VAR(5000, 9000, 3000)
+                       PDO_PPS_APDO(9500, 9500, 3000)>;
 
 		altmodes {
 			displayport {
