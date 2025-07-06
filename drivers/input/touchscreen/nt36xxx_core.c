@@ -830,6 +830,13 @@ static int32_t nt36xxx_download_firmware_hw_crc(struct nt36xxx_ts *ts) {
 	return 0;
 }
 
+static void nt36xxx_release_memory(void *data)
+{
+	struct nt36xxx_ts *ts = data;
+	kfree(ts->bin_map);
+	kfree(ts->fw_entry.data);
+}
+
 static int _nt36xxx_boot_prepare_firmware(struct nt36xxx_ts *ts) {
 	int i, ret;
 	size_t fw_need_write_size = 0;
@@ -928,7 +935,7 @@ static int _nt36xxx_boot_prepare_firmware(struct nt36xxx_ts *ts) {
 
 	ts->status |= NT36XXX_STATUS_PREPARE_FIRMWARE;
 
-	ret = devm_add_action_or_reset(dev, nt36xxx_release_memory, ts);
+	ret = devm_add_action_or_reset(ts->dev, nt36xxx_release_memory, ts);
 	if (ret)
 		return ret;
 
@@ -1074,13 +1081,6 @@ exit:
 		//cancel_delayed_work(&ts->work);
 		schedule_delayed_work(&ts->work, 4000);
 	}
-}
-
-static void nt36xxx_release_memory(void *data)
-{
-	struct nt36xxx_ts *ts = data;
-	kfree(ts->bin_map);
-	kfree(ts->fw_entry.data);
 }
 
 static void nt36xxx_disable_regulators(void *data)
