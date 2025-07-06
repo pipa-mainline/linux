@@ -920,6 +920,28 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&qup_spi4_data_clk &qup_spi4_cs_gpio>;
 	cs-gpios = <&tlmm 11 GPIO_ACTIVE_LOW>;
+
+	touchscreen: touchscreen@0 {
+		compatible = "novatek,nt36532-spi";
+		
+		reg = <0>;
+		status = "okay";
+
+		spi-max-frequency = <19200000>;
+
+		/* what the fuck??
+		 * driver should use gpio eintc instead of phandle to gpio
+		 * interrupts-extended = <&tlmm 39 0x2001>;
+		 */
+		irq-gpio = <&tlmm 39 (0x2000 | IRQ_TYPE_EDGE_RISING)>;
+		/* looks like nt36532 doesn't have reset-gpio */
+
+		// for panel-follower
+		panel = <&panel>;
+
+		// only tianma for now
+		firmware-name = "novatek/nt36532_tianma.bin";
+	};
 };
 
 &q6afedai {
