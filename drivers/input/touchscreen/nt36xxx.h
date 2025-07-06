@@ -9,7 +9,7 @@
 #define NT36XXX_H
 
 #define NT36XXX_INPUT_DEVICE_NAME	"Novatek NT36XXX Touch Sensor"
-#define MAX_SPI_FREQ_HZ 5000000
+#define MAX_SPI_FREQ_HZ 20000000
 
 /* FW Param address */
 #define NT36XXX_FW_ADDR		0x01
@@ -39,6 +39,7 @@
 
 enum nt36xxx_chips {
         NT36525_IC = 0x1,
+        NT36532_IC,
         NT36672A_IC,
         NT36676F_IC,
         NT36772_IC,
@@ -134,6 +135,7 @@ int nt36xxx_probe(struct device *dev, int irq, const struct input_id *id,
 			struct regmap *regmap);
 
 extern const struct dev_pm_ops nt36xxx_pm_ops;
+extern const u32 nt36532_memory_maps[];
 extern const u32 nt36675_memory_maps[];
 extern const u32 nt36672a_memory_maps[];
 extern const u32 nt36772_memory_maps[];

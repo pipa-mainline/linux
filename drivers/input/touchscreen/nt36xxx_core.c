@@ -123,6 +123,12 @@ struct nt36xxx_ts {
 static const struct nt36xxx_trim_table trim_id_table[] = {
 	/* TODO: port and test all related module */
 	{
+		.id = { 0xFF, 0xFF, 0xFF, 0x32, 0x65, 0x03 },
+		.mask = { 0, 0, 0, 1, 1, 1 },
+		.mapid = NT36532_IC,
+		.hw_crc = 2,
+	},
+	{
 		.id = { 0x0A, 0xFF, 0xFF, 0x72, 0x66, 0x03 },
 		.mask = { 1, 0, 0, 1, 1, 1 },
 		.mapid = NT36672A_IC,
@@ -189,6 +195,49 @@ static const struct nt36xxx_trim_table trim_id_table[] = {
 		.hw_crc = 2,
 	},
 	{ },
+};
+
+const u32 nt36532_memory_maps[] = {
+	[MMAP_EVENT_BUF_ADDR] = 0x125800,
+	[MMAP_RAW_PIPE0_ADDR] = 0x10B200,
+	[MMAP_RAW_PIPE1_ADDR] = 0x10B200,
+	[MMAP_BASELINE_ADDR] = 0x109E00,
+	[MMAP_DIFF_PIPE0_ADDR] = 0x128140,
+	[MMAP_DIFF_PIPE1_ADDR] = 0x129540,
+
+	/* idk */
+	/* [MMAP_READ_FLASH_CHECKSUM_ADDR] = 0,
+	   [MMAP_RW_FLASH_DATA_ADDR] = 0, */
+
+	[MMAP_BOOT_RDY_ADDR] = 0x1FB50D,
+	[MMAP_BLD_LENGTH_ADDR] = 0x1FB538,
+	[MMAP_ILM_LENGTH_ADDR] = 0x1FB518,
+	[MMAP_DLM_LENGTH_ADDR] = 0x1FB530,
+	[MMAP_BLD_DES_ADDR] = 0x1FB514,
+	[MMAP_ILM_DES_ADDR] = 0x1FB528,
+	[MMAP_DLM_DES_ADDR] = 0x1FB52C,
+	[MMAP_G_ILM_CHECKSUM_ADDR] = 0x1FB500,
+	[MMAP_G_DLM_CHECKSUM_ADDR] = 0x1FB504,
+	[MMAP_R_ILM_CHECKSUM_ADDR] = 0x1FB520,
+	[MMAP_R_DLM_CHECKSUM_ADDR] = 0x1FB524,
+
+	/* idk */
+	/* [MMAP_BLD_CRC_EN_ADDR] = 0,*/
+
+	[MMAP_DMA_CRC_EN_ADDR] = 0x1FB536,
+	[MMAP_BLD_ILM_DLM_CRC_ADDR] = 0x1FB533,
+	[MMAP_DMA_CRC_FLAG_ADDR] = 0x1FB534,
+
+	/* below are specified by dts, so it might change by project-based */
+	/* idk */
+	/* [MMAP_SPI_RD_FAST_ADDR] = 0, */
+	[MMAP_SWRST_N8_ADDR] = 0x03F0FE,
+	[MMAP_ENG_RST_ADDR] = 0x7FFF80,
+
+	/* idk */
+	/* [MMAP_MAGIC_NUMBER_0X1F64E_ADDR] = 0, */
+
+	[MMAP_TOP_ADDR] = 0xffffff,
 };
 
 const u32 nt36675_memory_maps[] = {
@@ -595,6 +644,10 @@ exit:
  */
 static int nt36xxx_chip_version_init(struct nt36xxx_ts *ts)
 {
+	// HACK
+	ts->hw_crc = trim_id_table[0].hw_crc;
+	return 0;
+
 	u8 buf[32] = { 0 };
 	int retry = NT36XXX_MAX_RETRIES;
 	int sz = sizeof(trim_id_table) / sizeof(struct nt36xxx_trim_table);

@@ -5,6 +5,7 @@
  * Copyright (C) 2020 - 2021 Goodix, Inc.
  * Copyright (C) 2023 Linaro Ltd.
  * Copyright (C) 2023-2024 George Chan <gchan9527@gmail.com>
+ * Copyright (C) 2025 Mainlining Org.
  *
  * Based on goodix_ts_berlin driver.
  */
@@ -23,7 +24,7 @@
 #define SPI_READ_PREFIX_LEN	1
 #define SPI_WRITE_PREFIX_LEN	1
 
-#define DEBUG 0
+#define DEBUG 1
 
 /*
  * there are two kinds of spi read/write:
@@ -217,13 +218,26 @@ const struct nt36xxx_chip_data generic_nt36525 = {
 	.id = &nt36xxx_spi_input_id,
 };
 
+const struct nt36xxx_chip_data pipa_tianma_nt36532 = {
+	.config = &nt36xxx_regmap_config_32bit,
+	.mmap = nt36532_memory_maps,
+	.fw_name = "nt36532_pipa_tianma.bin",
+	.max_x = 1800,
+	.max_y = 2880,
+	.abs_x_max = 1800,
+	.abs_y_max = 2880,
+	.id = &nt36xxx_spi_input_id,
+};
+
 static const struct spi_device_id nt36xxx_spi_ids[] = {
 	{ "nt36675-spi", 0 },
+	{ "nt36532-spi", 0 },
 	{ },
 };
 MODULE_DEVICE_TABLE(spi, nt36xxx_spi_ids);
 
 static const struct of_device_id nt36xxx_spi_of_match[] = {
+	{ .compatible = "novatek,nt36532-spi", .data = &pipa_tianma_nt36532, },
 	{ .compatible = "novatek,nt36675-spi", .data = &miatoll_tianma_nt36675, },
 	{ .compatible = "novatek,nt36672a-spi", .data = &miatoll_tianma_nt36675, },
 	{ .compatible = "novatek,nt36676f-spi", .data = &generic_nt36676f, },
@@ -237,7 +251,7 @@ MODULE_DEVICE_TABLE(of, nt36xxx_spi_of_match);
 
 static struct spi_driver nt36xxx_spi_driver = {
 	.driver = {
-		.name   = "nt36675-spi",
+		.name   = "nt36532-spi",
 		.of_match_table = nt36xxx_spi_of_match,
 		.pm = pm_sleep_ptr(&nt36xxx_pm_ops),
 	},
