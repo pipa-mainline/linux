@@ -1664,7 +1664,6 @@ static enum power_supply_property bq2597x_charger_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 };
-static void bq2597x_check_alarm_status(struct bq2597x *bq);
 static void bq2597x_check_fault_status(struct bq2597x *bq);
 
 static int bq2597x_charger_get_property(struct power_supply *psy,
@@ -1765,7 +1764,7 @@ static int bq2597x_charger_is_writeable(struct power_supply *psy,
 static int bq2597x_psy_register(struct bq2597x *bq)
 {
 	bq->psy_cfg.drv_data = bq;
-	bq->psy_cfg.of_node = bq->dev->of_node;
+	bq->psy_cfg.fwnode = dev_fwnode(bq->dev);
 
 	if (bq->mode == BQ25970_ROLE_MASTER)
 		bq->psy_desc.name = "bq2597x-master";
@@ -1801,83 +1800,6 @@ static int bq2597x_psy_register(struct bq2597x *bq)
 	bq_info("%s power supply register successfully\n", bq->psy_desc.name);
 
 	return 0;
-}
-
-static void bq2597x_dump_important_regs(struct bq2597x *bq)
-{
-
-	int ret;
-	u8 val;
-
-	ret = bq2597x_read_byte(bq, BQ2597X_REG_0A, &val);
-	if (!ret)
-		bq_err("dump converter state Reg [%02X] = 0x%02X\n",
-				BQ2597X_REG_0A, val);
-
-	ret = bq2597x_read_byte(bq, BQ2597X_REG_0D, &val);
-	if (!ret)
-		bq_err("dump int stat Reg[%02X] = 0x%02X\n",
-				BQ2597X_REG_0D, val);
-
-	ret = bq2597x_read_byte(bq, BQ2597X_REG_0E, &val);
-	if (!ret)
-		bq_err("dump int flag Reg[%02X] = 0x%02X\n",
-				BQ2597X_REG_0E, val);
-
-	ret = bq2597x_read_byte(bq, BQ2597X_REG_10, &val);
-	if (!ret)
-		bq_err("dump fault stat Reg[%02X] = 0x%02X\n",
-				BQ2597X_REG_10, val);
-
-	ret = bq2597x_read_byte(bq, BQ2597X_REG_11, &val);
-	if (!ret)
-		bq_err("dump fault flag Reg[%02X] = 0x%02X\n",
-				BQ2597X_REG_11, val);
-
-	ret = bq2597x_read_byte(bq, BQ2597X_REG_2D, &val);
-	if (!ret)
-		bq_err("dump regulation flag Reg[%02X] = 0x%02X\n",
-				BQ2597X_REG_2D, val);
-}
-
-static void bq2597x_check_alarm_status(struct bq2597x *bq)
-{
-	int ret;
-	u8 flag = 0;
-	u8 stat = 0;
-
-	mutex_lock(&bq->data_lock);
-
-	ret = bq2597x_read_byte(bq, BQ2597X_REG_08, &flag);
-	if (!ret && (flag & BQ2597X_IBUS_UCP_FALL_FLAG_MASK))
-		bq_info("under-current-alarm was triggered!\n");
-
-	ret = bq2597x_read_byte(bq, BQ2597X_REG_2D, &flag);
-	if (!ret && (flag & BQ2597X_VDROP_OVP_FLAG_MASK))
-		bq_info("vbus was dropped!\n");
-
-	/*read to clear alarm flag*/
-	ret = bq2597x_read_byte(bq, BQ2597X_REG_0E, &flag);
-
-	ret = bq2597x_read_byte(bq, BQ2597X_REG_0D, &stat);
-	if (!ret && stat != bq->prev_alarm) {
-		bq->prev_alarm = stat;
-		bq->bat_ovp_alarm = !!(stat & BAT_OVP_ALARM);
-		bq->bat_ocp_alarm = !!(stat & BAT_OCP_ALARM);
-		bq->bus_ovp_alarm = !!(stat & BUS_OVP_ALARM);
-		bq->bus_ocp_alarm = !!(stat & BUS_OCP_ALARM);
-		bq->batt_present  = !!(stat & VBAT_INSERT);
-		bq->vbus_present  = !!(stat & VBUS_INSERT);
-		bq->bat_ucp_alarm = !!(stat & BAT_UCP_ALARM);
-	}
-
-	ret = bq2597x_read_byte(bq, BQ2597X_REG_08, &stat);
-	if (!ret && (stat & 0x50))
-		bq_err("ucp-ovp alarm was triggered!\n");
-
-	ret = bq2597x_read_byte(bq, BQ2597X_REG_0A, &stat);
-
-	mutex_unlock(&bq->data_lock);
 }
 
 static void bq2597x_check_fault_status(struct bq2597x *bq)
@@ -2111,7 +2033,7 @@ static int bq2597x_charger_probe(struct i2c_client *client)
 				"upstream charger wait failed, deferring...\n");
 			return ret;
 		}
-		bq->upstream_psy = power_supply_get_by_phandle(bq->dev->of_node,
+		bq->upstream_psy = power_supply_get_by_reference(of_fwnode_handle(bq->dev->of_node),
 							"upstream-charger");
 		dev_err(bq->dev,
 				"upstream charger is not ready, retry count: %d\n", retry_count);
