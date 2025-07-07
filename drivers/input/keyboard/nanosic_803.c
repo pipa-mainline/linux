@@ -511,7 +511,7 @@ static void nanosic_handle_fn_key(struct nanosic_803_priv *nanosic_dev, char *bu
 
 static void nanosic_touch_timer_callback(struct timer_list *t)
 {
-	struct nanosic_803_priv *nanosic_dev = from_timer(nanosic_dev, t, finger_timer);
+	struct nanosic_803_priv *nanosic_dev = timer_container_of(nanosic_dev, t, finger_timer);
 
 	if (nanosic_dev->finger_down) {
 		for (int i = 0; i<3; i++) {
