@@ -2949,45 +2949,45 @@
 			gpu_opp_table: opp-table {
 				compatible = "operating-points-v2";
 
-				opp-670000000 {
-					opp-hz = /bits/ 64 <670000000>;
-					opp-level = <RPMH_REGULATOR_LEVEL_NOM_L1>;
+				opp-683000000 {
+					opp-hz = /bits/ 64 <683000000>;
+					opp-level = <260>;
 					opp-supported-hw = <0xa>;
 				};
 
 				opp-587000000 {
 					opp-hz = /bits/ 64 <587000000>;
-					opp-level = <RPMH_REGULATOR_LEVEL_NOM>;
+					opp-level = <129>;
 					opp-supported-hw = <0xb>;
 				};
 
-				opp-525000000 {
-					opp-hz = /bits/ 64 <525000000>;
-					opp-level = <RPMH_REGULATOR_LEVEL_SVS_L2>;
-					opp-supported-hw = <0xf>;
-				};
-
-				opp-490000000 {
-					opp-hz = /bits/ 64 <490000000>;
-					opp-level = <RPMH_REGULATOR_LEVEL_SVS_L1>;
-					opp-supported-hw = <0xf>;
-				};
-
-				opp-441600000 {
-					opp-hz = /bits/ 64 <441600000>;
-					opp-level = <RPMH_REGULATOR_LEVEL_SVS_L0>;
+				opp-510000000 {
+					opp-hz = /bits/ 64 <510000000>;
+					opp-level = <66>;
 					opp-supported-hw = <0xf>;
 				};
 
 				opp-400000000 {
 					opp-hz = /bits/ 64 <400000000>;
-					opp-level = <RPMH_REGULATOR_LEVEL_SVS>;
+					opp-level = <1>;
 					opp-supported-hw = <0xf>;
 				};
 
-				opp-305000000 {
-					opp-hz = /bits/ 64 <305000000>;
-					opp-level = <RPMH_REGULATOR_LEVEL_LOW_SVS>;
+				opp-330000000 {
+					opp-hz = /bits/ 64 <330000000>;
+					opp-level = <1>;
+					opp-supported-hw = <0xf>;
+				};
+
+				opp-205000000 {
+					opp-hz = /bits/ 64 <205000000>;
+					opp-level = <1>;
+					opp-supported-hw = <0xf>;
+				};
+
+				opp-150000000 {
+					opp-hz = /bits/ 64 <150000000>;
+					opp-level = <1>;
 					opp-supported-hw = <0xf>;
 				};
 			};
@@ -3026,8 +3026,8 @@
 			gmu_opp_table: opp-table {
 				compatible = "operating-points-v2";
 
-				opp-200000000 {
-					opp-hz = /bits/ 64 <200000000>;
+				opp-500000000 {
+					opp-hz = /bits/ 64 <500000000>;
 					opp-level = <RPMH_REGULATOR_LEVEL_MIN_SVS>;
 				};
 			};
