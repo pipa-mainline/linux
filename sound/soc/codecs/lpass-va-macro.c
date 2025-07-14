@@ -1503,6 +1503,7 @@ static int va_macro_probe(struct platform_device *pdev)
 	struct va_macro *va;
 	void __iomem *base;
 	u32 sample_rate = 0;
+	int macro_clk_enable_retries = 20;
 	int ret;
 
 	va = devm_kzalloc(dev, sizeof(*va), GFP_KERNEL);
@@ -1571,9 +1572,16 @@ static int va_macro_probe(struct platform_device *pdev)
 		clk_set_rate(va->npl, 2 * VA_MACRO_MCLK_FREQ);
 	}
 
-	ret = clk_prepare_enable(va->macro);
-	if (ret)
+	while (macro_clk_enable_retries--) {
+		ret = clk_prepare_enable(va->macro);
+		if (!ret)
+			break;
+		msleep(100);
+	}
+	if (ret) {
+		dev_err(dev, "Failed to enable va macro clock\n");
 		goto err;
+	}
 
 	ret = clk_prepare_enable(va->dcodec);
 	if (ret)
