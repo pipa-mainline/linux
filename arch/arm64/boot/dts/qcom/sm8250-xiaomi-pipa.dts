@@ -228,6 +228,29 @@
 		};
 	};
 
+	wcd938x: audio-codec {
+		compatible = "qcom,wcd9380-codec";
+
+		reset-gpios = <&tlmm 32 GPIO_ACTIVE_LOW>;
+
+		vdd-buck-supply = <&vreg_s4a_1p8>;
+		vdd-rxtx-supply = <&vreg_s4a_1p8>;
+		vdd-io-supply = <&vreg_s4a_1p8>;
+		vdd-mic-bias-supply = <&vreg_bob>;
+
+		qcom,micbias1-microvolt = <2750000>;
+		qcom,micbias2-microvolt = <2750000>;
+		qcom,micbias3-microvolt = <2750000>;
+		qcom,micbias4-microvolt = <2750000>;
+		qcom,mbhc-buttons-vthreshold-microvolt = <75000 150000 237000 500000 500000 500000 500000 500000>;
+		qcom,mbhc-headset-vthreshold-microvolt = <1700000>;
+		qcom,mbhc-headphone-vthreshold-microvolt = <50000>;
+		qcom,rx-device = <&wcd_rx>;
+		qcom,tx-device = <&wcd_tx>;
+
+		#sound-dai-cells = <1>;
+	};
+
 	reserved-memory {
 		xbl_aop_mem: xbl-aop@80700000 {
 			reg = <0x0 0x80600000 0x0 0x260000>;
@@ -940,7 +963,7 @@
 };
 
 &q6afedai {
-	dai@56 { /* Tertiary TDM RX??? */
+	dai@56 {
 		reg = <TERTIARY_TDM_RX_0>;
 		qcom,tdm-sync-mode = <1>;     /* Sync mode: 1=secondary (for AW88261) */
 		qcom,tdm-sync-src = <1>;      /* Sync source: 1=internal */
@@ -949,16 +972,60 @@
 		qcom,tdm-data-delay = <1>;    /* 1-bit data delay for proper alignment */
 		qcom,tdm-data-align = <0>;    /* No special alignment needed */
 	};
-};
 
-&q6asmdai {
-	dai@0 { /* MultiMedia1??? */
-		reg = <0>;
+	dai@113 {
+		reg = <RX_CODEC_DMA_RX_0>;
+	};
+
+	dai@120 {
+		reg = <TX_CODEC_DMA_TX_3>;
 	};
 };
 
-&vamacro {
-	status = "disabled";
+&q6asmdai {
+	dai@0 {
+		reg = <MSM_FRONTEND_DAI_MULTIMEDIA1>;
+	};
+	dai@1 {
+		reg = <MSM_FRONTEND_DAI_MULTIMEDIA2>;
+	};
+	dai@2 {
+		reg = <MSM_FRONTEND_DAI_MULTIMEDIA3>;
+	};
+};
+
+&vamacro { // actually not used, without it wcd9380 capture crashes
+	vdd-micb-supply = <&vreg_bob>;
+	qcom,dmic-sample-rate = <4800000>;
+	status = "okay";
+};
+
+&rxmacro {
+	status = "okay";
+};
+
+&txmacro {
+	status = "okay";
+};
+
+&swr1 {
+	status = "okay";
+
+	wcd_rx: wcd9380-rx@0,4 {
+		compatible = "sdw20217010d00";
+		reg = <0 4>;
+		qcom,rx-port-mapping = <1 2 3 4 5>;
+	};
+};
+
+&swr2 {
+	status = "okay";
+
+	wcd_tx: wcd9380-tx@0,3 {
+		compatible = "sdw20217010d00";
+		reg = <0 3>;
+		qcom,tx-port-mapping = <2 3 4 5>;
+	};
 };
 
 &sound {
@@ -967,11 +1034,42 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&tert_tdm_active>;
 
-	mm1-dai-link {
+	audio-routing =
+	"AMIC1", "MIC BIAS1",
+	"AMIC2", "MIC BIAS2",
+	"AMIC3", "MIC BIAS3",
+	"AMIC4", "MIC BIAS3",
+	"AMIC5", "MIC BIAS4",
+	"ADC1", "AMIC1",
+	"ADC2", "AMIC2",
+	"ADC3", "AMIC3",
+	"ADC4", "AMIC4",
+	"TX SWR_ADC0", "ADC1_OUTPUT",
+	"TX SWR_ADC1", "ADC2_OUTPUT",
+	"TX SWR_ADC2", "ADC3_OUTPUT",
+	"TX SWR_ADC3", "ADC4_OUTPUT";
+
+	mm1-dai-link { // Used by Tertiary TDM Playback (via AW88261)
 		link-name = "MultiMedia1";
 
 		cpu {
 			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA1>;
+		};
+	};
+
+	mm2-dai-link { // Will be used by WCD9380 Playback?
+		link-name = "MultiMedia2";
+
+		cpu {
+			sound-dai = <&q6asmdai  MSM_FRONTEND_DAI_MULTIMEDIA2>;
+		};
+	};
+
+	mm3-dai-link { // Used by WCD9380 Capture
+		link-name = "MultiMedia3";
+
+		cpu {
+			sound-dai = <&q6asmdai  MSM_FRONTEND_DAI_MULTIMEDIA3>;
 		};
 	};
 
@@ -990,6 +1088,37 @@
 		codec {
 			sound-dai = <&aw88261_pl>, <&aw88261_pr>,
 					<&aw88261_sl>, <&aw88261_sr>;
+		};
+	};
+
+	wcd-playback-dai-link {
+		link-name = "WCD Playback";
+
+		codec {
+			sound-dai = <&wcd938x 0>, <&swr1 0>, <&rxmacro 0>;
+		};
+
+		cpu {
+			sound-dai = <&q6afedai RX_CODEC_DMA_RX_0>;
+		};
+
+		platform {
+			sound-dai = <&q6routing>;
+		};
+	};
+
+	wcd-capture-dai-link {
+		link-name = "WCD Capture";
+
+		cpu {
+			sound-dai = <&q6afedai TX_CODEC_DMA_TX_3>;
+		};
+
+		codec {
+			sound-dai = <&wcd938x 1>, <&swr2 0>, <&txmacro 0>;
+		};
+		platform {
+			sound-dai = <&q6routing>;
 		};
 	};
 };
