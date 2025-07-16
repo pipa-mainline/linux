@@ -11,6 +11,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/seq_file.h>
+#include <linux/delay.h>
 
 #include <linux/pinctrl/pinconf-generic.h>
 #include <linux/pinctrl/pinconf.h>
@@ -462,6 +463,7 @@ int lpi_pinctrl_probe(struct platform_device *pdev)
 	const struct lpi_pinctrl_variant_data *data;
 	struct device *dev = &pdev->dev;
 	struct lpi_pinctrl *pctrl;
+	int clk_enable_retries = 10;
 	int ret;
 
 	pctrl = devm_kzalloc(dev, sizeof(*pctrl), GFP_KERNEL);
@@ -499,7 +501,12 @@ int lpi_pinctrl_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = clk_bulk_prepare_enable(MAX_LPI_NUM_CLKS, pctrl->clks);
+	while (clk_enable_retries--) {
+		ret = clk_bulk_prepare_enable(MAX_LPI_NUM_CLKS, pctrl->clks);
+		if (!ret)
+			break;
+		msleep(100);
+	}
 	if (ret)
 		return dev_err_probe(dev, ret, "Can't enable clocks\n");
 
