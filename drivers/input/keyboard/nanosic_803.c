@@ -804,6 +804,8 @@ static void nanosic_handle_touchpad_mt(struct nanosic_803_priv *nanosic_dev, cha
 		input_report_abs(nanosic_dev->touchpad_input_dev, ABS_MT_POSITION_Y, y);
 	}
 
+	input_report_key(nanosic_dev->touchpad_input_dev, BTN_LEFT, (uint16_t)buf[4]);
+
 	input_mt_sync_frame(nanosic_dev->touchpad_input_dev);
 	input_sync(nanosic_dev->touchpad_input_dev);
 
