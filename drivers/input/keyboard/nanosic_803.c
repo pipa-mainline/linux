@@ -27,6 +27,8 @@
 #define TOUCH_TIMEOUT_MS 75
 #define INT_ADDR_MAX_BYTES 4
 
+#define NANOSIC_CLICK_BYTE_OFFSET 4
+
 static const unsigned int hid_to_linux_keycode[] = {
 	[0x04] = KEY_A,
 	[0x05] = KEY_B,
@@ -564,6 +566,8 @@ static void nanosic_handle_touchpad_mt(struct nanosic_803_priv *nanosic_dev, cha
 		input_report_abs(nanosic_dev->touchpad_input_dev, ABS_MT_POSITION_Y, y);
 	}
 
+	input_report_key(nanosic_dev->touchpad_input_dev, BTN_LEFT, (uint16_t)buf[NANOSIC_CLICK_BYTE_OFFSET]);
+	
 	input_mt_sync_frame(nanosic_dev->touchpad_input_dev);
 	input_sync(nanosic_dev->touchpad_input_dev);
 
