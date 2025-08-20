@@ -114,6 +114,75 @@ static const unsigned int hid_to_linux_keycode[] = {
 	[0xea] = KEY_VOLUMEDOWN,
 };
 
+static const unsigned int second_layer_to_linux_keycode[] = {
+	[0x04] = KEY_A,
+	[0x05] = KEY_KP1,
+	[0x06] = KEY_C,
+	[0x07] = KEY_D,
+	[0x08] = KEY_E,
+	[0x09] = KEY_F,
+	[0x0A] = KEY_KP4,
+	[0x0B] = KEY_KP5,
+	[0x0C] = KEY_INSERT,
+	[0x0D] = KEY_KP6,
+	[0x0E] = KEY_KPASTERISK,
+	[0x0F] = KEY_KPPLUS,
+	[0x10] = KEY_KP3,
+	[0x11] = KEY_KP2,
+	[0x12] = KEY_KP0,
+	[0x13] = KEY_SYSRQ,
+	[0x14] = KEY_Q,
+	[0x15] = KEY_R,
+	[0x16] = KEY_S,
+	[0x17] = KEY_KP7,
+	[0x18] = KEY_KP9,
+	[0x19] = KEY_V,
+	[0x1A] = KEY_W,
+	[0x1B] = KEY_X,
+	[0x1C] = KEY_KP8,
+	[0x1D] = KEY_Z,
+	[0x1E] = KEY_F1,
+	[0x1F] = KEY_F2,
+	[0x20] = KEY_F3,
+	[0x21] = KEY_F4,
+	[0x22] = KEY_F5,
+	[0x23] = KEY_F6,
+	[0x24] = KEY_F7,
+	[0x25] = KEY_F8,
+	[0x26] = KEY_F9,
+	[0x27] = KEY_F10,
+	[0x28] = KEY_KPENTER,
+	[0x29] = KEY_GRAVE,
+	[0x2A] = KEY_DELETE,
+	[0x2B] = KEY_NUMLOCK,
+	[0x2C] = KEY_SPACE,
+	[0x2D] = KEY_F11,
+	[0x2E] = KEY_F12,
+	[0x2F] = KEY_ROTATE_DISPLAY,
+	[0x30] = KEY_BREAK,
+	[0x31] = KEY_BACKSLASH,
+	[0x32] = KEY_GRAVE,
+	[0x33] = KEY_KPMINUS,
+	[0x34] = KEY_COMPOSE,
+	[0x35] = KEY_GRAVE,
+	[0x36] = KEY_KPCOMMA,
+	[0x37] = KEY_KPDOT,
+	[0x38] = KEY_KPSLASH,
+	[0x39] = KEY_CAPSLOCK,
+	[0x4f] = KEY_END,
+	[0x50] = KEY_HOME,
+	[0x51] = KEY_PAGEDOWN,
+	[0x52] = KEY_PAGEUP,
+	[0x6f] = KEY_BRIGHTNESSUP,
+	[0x70] = KEY_BRIGHTNESSDOWN,
+	[0xb5] = KEY_NEXTSONG,
+	[0xb6] = KEY_PREVIOUSSONG,
+	[0xcd] = KEY_PLAYPAUSE,
+	[0xe2] = KEY_MUTE,
+	[0xe9] = KEY_VOLUMEUP,
+	[0xea] = KEY_VOLUMEDOWN,
+};
+
 static const uint16_t hid_modifier_to_linux_keycode[8] = {
 	KEY_LEFTCTRL,
 	KEY_LEFTSHIFT,
@@ -154,6 +223,8 @@ struct nanosic_803_priv {
 	int slot_mapping[3];
 	bool finger_down;
 	bool caps_led_on;
+	bool caps_as_second_layer_key;
+	bool second_layer_active;
 	unsigned long last_touch_time;
 	int last_x, last_y;
 	struct dentry *debugfs_root;
@@ -517,6 +588,7 @@ static void nanosic_handle_keyboard(struct nanosic_803_priv *nanosic_dev, char *
 {
 	int i, j;
 	int found;
+	int keycode;
 
 	if (!nanosic_dev->keyboard_input_dev) {
 		nanosic_register_keyboard(nanosic_dev);
@@ -535,7 +607,15 @@ static void nanosic_handle_keyboard(struct nanosic_803_priv *nanosic_dev, char *
 		}
 		if (!found) {
 			dev_dbg(nanosic_dev->dev, "Key pressed: 0x%02X\n", buf[6+i]);
-			input_report_key(nanosic_dev->keyboard_input_dev, hid_to_linux_keycode[(unsigned char)buf[6+i]], 1);
+			keycode = hid_to_linux_keycode[(unsigned char)buf[6+i]];
+			if (nanosic_dev->caps_as_second_layer_key && keycode == KEY_CAPSLOCK) {
+				dev_dbg(nanosic_dev->dev, "Second layer");
+				nanosic_dev->second_layer_active = true;
+				continue;
+			}
+			if (nanosic_dev->second_layer_active)
+				keycode = second_layer_to_linux_keycode[(unsigned char)buf[6+i]];
+			input_report_key(nanosic_dev->keyboard_input_dev, keycode, 1);
 			input_sync(nanosic_dev->keyboard_input_dev);
 		}
 	}
@@ -550,7 +630,16 @@ static void nanosic_handle_keyboard(struct nanosic_803_priv *nanosic_dev, char *
 		}
 		if (!found) {
 			dev_dbg(nanosic_dev->dev, "Key released: 0x%02X\n", nanosic_dev->last_pressed_key[i]);
-			input_report_key(nanosic_dev->keyboard_input_dev, hid_to_linux_keycode[(unsigned char)nanosic_dev->last_pressed_key[i]], 0);
+			keycode = hid_to_linux_keycode[(unsigned char)nanosic_dev->last_pressed_key[i]];
+			if (nanosic_dev->caps_as_second_layer_key && keycode == KEY_CAPSLOCK) {
+				dev_dbg(nanosic_dev->dev, "First layer");
+				nanosic_dev->second_layer_active = false;
+				continue;
+			}
+
+			// release the key from both layers
+			input_report_key(nanosic_dev->keyboard_input_dev, keycode, 0);
+			input_report_key(nanosic_dev->keyboard_input_dev, second_layer_to_linux_keycode[(unsigned char)nanosic_dev->last_pressed_key[i]], 0);
 			input_sync(nanosic_dev->keyboard_input_dev);
 		}
 	}
@@ -574,6 +663,16 @@ static void nanosic_handle_fn_key(struct nanosic_803_priv *nanosic_dev, char *bu
 			dev_dbg(nanosic_dev->dev, "Key pressed: 0x%02X\n", buf[4]);
 			input_report_key(nanosic_dev->keyboard_input_dev, hid_to_linux_keycode[(unsigned char)buf[4]], 1);
 			input_sync(nanosic_dev->keyboard_input_dev);
+		} else if (buf[8] == 0x05 && hid_to_linux_keycode[(unsigned char)buf[11]] == KEY_2 && hid_to_linux_keycode[(unsigned char)buf[12]] == KEY_1) {
+			/*
+			 * Use Caps Lock as a second layer key if fn+1+2 was pressed:
+			 * 57  03  4a  06  00  00  00  00  05  00  00  1f  1e  00  00  00  00  00  00  00  00  <...>
+			 *              ^      (key event)--^           ^   ^---(KEY_1)
+			 *              |                               |
+			 *               \-(empty fn key event)          \-(KEY_2)
+			 */
+			nanosic_dev->caps_as_second_layer_key = !nanosic_dev->caps_as_second_layer_key;
+			dev_dbg(nanosic_dev->dev, "Caps Lock as second layer key: %d\n", nanosic_dev->caps_as_second_layer_key);
 		}
 		nanosic_dev->last_fn_key = buf[4];
 	}
