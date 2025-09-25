@@ -785,6 +785,8 @@
 		compatible = "nanosic,803";
 		status = "okay";
 		reg = <0x4c>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&nanosic_default>;
 		reset-gpios = <&tlmm 141 GPIO_ACTIVE_LOW>;
 		sleep-gpios = <&tlmm 155 GPIO_ACTIVE_LOW>;
 		vdd-gpios = <&tlmm 127 GPIO_ACTIVE_HIGH>;
@@ -1412,6 +1414,22 @@
 		drive-strength = <2>;
 		bias-pull-up;
 		input-enable;
+	};
+
+	nanosic_default: nanosic-default-state {
+		sleep-pins {
+			pins = "gpio155";
+			function = "gpio";
+			drive-strength = <2>;
+			output-low;
+		};
+
+		reset-pins {
+			pins = "gpio141";
+			function = "gpio";
+			drive-strength = <2>;
+			output-low;
+		};
 	};
 
 	hall {
