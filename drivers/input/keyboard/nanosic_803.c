@@ -144,29 +144,32 @@ struct nanosic_803_priv {
 
 static void nanosic_803_wakeup(struct nanosic_803_priv *nanosic_dev)
 {
-	int level = 1;
-	int retry = 3;
-	level = gpiod_get_value(nanosic_dev->irq_gpio);
+	int level;
+	int retry = 2;
 
-	if (level <= 0) {
+	level = gpiod_get_value_cansleep(nanosic_dev->irq_gpio);
+
+	dev_dbg(nanosic_dev->dev, "setting sleep pin to 0\n");
+	gpiod_set_value_cansleep(nanosic_dev->sleep_gpio, 0);
+
+	if (level > 0) {
+		dev_dbg(nanosic_dev->dev, "Chip is asleep (IRQ level=%d), waking up...\n", level);
 		mdelay(25);
 		while (retry--) {
-			// Try three times
-			if (gpiod_get_value(nanosic_dev->irq_gpio)) {
-				break;
+			dev_dbg(nanosic_dev->dev, "sleep pin: %d\n", gpiod_get_value(nanosic_dev->sleep_gpio));
+			if (gpiod_get_value_cansleep(nanosic_dev->irq_gpio) <= 0) {
+				dev_dbg(nanosic_dev->dev, "Wake up successful.\n");
+				return;
 			}
-			// Reset wn8030
-			if (retry == 0) {
-				gpiod_set_value(nanosic_dev->reset_gpio, 0);
-				mdelay(100);
-				gpiod_set_value(nanosic_dev->reset_gpio, 1);
-
-				// Delay 500ms for iic ready
-				mdelay(500);
-			}
-			// IRQ low level duration is 1ms
 			mdelay(1);
 		}
+
+		dev_err(nanosic_dev->dev, "Failed to wake up chip, resetting...\n");
+		gpiod_set_value_cansleep(nanosic_dev->reset_gpio, 1);
+		mdelay(100);
+		gpiod_set_value_cansleep(nanosic_dev->reset_gpio, 0);
+		mdelay(500);
+		dev_dbg(nanosic_dev->dev, "reset pin: %d, sleep pin: %d\n", gpiod_get_value(nanosic_dev->reset_gpio), gpiod_get_value(nanosic_dev->sleep_gpio));
 	}
 }
 
@@ -631,14 +634,19 @@ static irqreturn_t nanosic_interrupt_thread_fn(int irq, void *dev_id)
 
 static void nanosic_803_reset(struct nanosic_803_priv *nanosic_dev)
 {
-	gpiod_set_value(nanosic_dev->reset_gpio, 0);
-	gpiod_set_value(nanosic_dev->sleep_gpio, 0);
-	gpiod_set_value(nanosic_dev->vdd_gpio, 0);
-	msleep(100);
-	gpiod_set_value(nanosic_dev->vdd_gpio, 1);
-	msleep(2);
 	gpiod_set_value(nanosic_dev->reset_gpio, 1);
 	gpiod_set_value(nanosic_dev->sleep_gpio, 1);
+
+	gpiod_set_value(nanosic_dev->vdd_gpio, 0);
+
+	msleep(100);
+
+	gpiod_set_value(nanosic_dev->vdd_gpio, 1);
+
+	msleep(2);
+
+	gpiod_set_value(nanosic_dev->reset_gpio, 0);
+	gpiod_set_value(nanosic_dev->sleep_gpio, 0);
 }
 
 static int nanosic_803_probe(struct i2c_client *client)
@@ -659,13 +667,13 @@ static int nanosic_803_probe(struct i2c_client *client)
 	INIT_WORK(&nanosic_dev->led_work, nanosic_sync_caps_led);
 
 	// Get GPIOs
-	nanosic_dev->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
+	nanosic_dev->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(nanosic_dev->reset_gpio)) {
 		dev_err(dev, "Failed to get reset GPIO\n");
 		return PTR_ERR(nanosic_dev->reset_gpio);
 	}
 
-	nanosic_dev->sleep_gpio = devm_gpiod_get(dev, "sleep", GPIOD_OUT_HIGH);
+	nanosic_dev->sleep_gpio = devm_gpiod_get(dev, "sleep", GPIOD_OUT_LOW);
 	if (IS_ERR(nanosic_dev->sleep_gpio)) {
 		dev_err(dev, "Failed to get sleep GPIO\n");
 		return PTR_ERR(nanosic_dev->sleep_gpio);
@@ -780,8 +788,8 @@ static void nanosic_803_remove(struct i2c_client *client)
 	cancel_work_sync(&nanosic_dev->led_work);
 	destroy_workqueue(nanosic_dev->wq);
 
-	gpiod_set_value(nanosic_dev->reset_gpio, 0);
-	gpiod_set_value(nanosic_dev->sleep_gpio, 0);
+	gpiod_set_value(nanosic_dev->reset_gpio, 1);
+	gpiod_set_value(nanosic_dev->sleep_gpio, 1);
 
 	gpiod_set_value(nanosic_dev->vdd_gpio, 0);
 
@@ -803,8 +811,9 @@ static int nanosic_803_suspend(struct device *dev)
 	int ret;
 
 	// Actually de-init device
-	gpiod_set_value(nanosic_dev->reset_gpio, 0);
-	gpiod_set_value(nanosic_dev->sleep_gpio, 0);
+	gpiod_set_value(nanosic_dev->reset_gpio, 1);
+	gpiod_set_value(nanosic_dev->sleep_gpio, 1);
+
 	gpiod_set_value(nanosic_dev->vdd_gpio, 0);
 
 	// Turn the regulators off
