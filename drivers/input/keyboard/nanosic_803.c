@@ -680,7 +680,7 @@ static int nanosic_803_probe(struct i2c_client *client)
 	nanosic_dev->irq_gpio = devm_gpiod_get(dev, "irq", GPIOD_IN);
 	if (IS_ERR(nanosic_dev->irq_gpio)) {
 		dev_err(dev, "Failed to get irq GPIO\n");
-		return PTR_ERR(nanosic_dev->vdd_gpio);
+		return PTR_ERR(nanosic_dev->irq_gpio);
 	}
 
 	// Get regulators
@@ -794,13 +794,13 @@ static int nanosic_803_resume(struct device *dev)
 	// Turn the regulators on
 	ret = regulator_enable(nanosic_dev->vdd_1v8);
 	if (ret) {
-		dev_err(dev, "Failed to disable 1.8V regulator\n");
+		dev_err(dev, "Failed to enable 1.8V regulator\n");
 		return ret;
 	}
 
 	ret = regulator_enable(nanosic_dev->vdd_3v3);
 	if (ret) {
-		dev_err(dev, "Failed to disable 3.3V regulator\n");
+		dev_err(dev, "Failed to enable 3.3V regulator\n");
 		return ret;
 	}
 
