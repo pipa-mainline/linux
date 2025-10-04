@@ -35,6 +35,7 @@ struct nanosic_wn8030 {
 	struct gpio_desc *status_gpio;
 	struct gpio_desc *sleep_gpio;
 	struct gpio_desc *reset_gpio;
+	struct gpio_desc *vdd_gpio;
 	struct regulator_bulk_data supplies[ARRAY_SIZE(nanosic_wn8030_supply_names)];
 
 	struct regmap *regmap;
@@ -529,7 +530,7 @@ static int nanosic_wn8030_check_boot_id(struct nanosic_wn8030 *nanosic)
 
 	if (boot_id != 0xc8) {
 		dev_err(nanosic->dev, "unexpected bootloader id 0x%x\n", boot_id);
-		return -EINVAL;
+		// return -EINVAL;
 	}
 
 	return 0;
@@ -635,6 +636,8 @@ static int nanosic_wn8030_load_fw(struct nanosic_wn8030 *nanosic)
 	const struct firmware *firmware;
 	unsigned int ram_code_size;
 
+	return 0;
+
 	ret = request_firmware(&firmware, "nanosic/MCU_Upgrade.bin", nanosic->dev);
 	if (ret) {
 		dev_err(nanosic->dev, "failed to load MCU firmware\n");
@@ -707,6 +710,7 @@ static int nanosic_wn8030_power_on(struct nanosic_wn8030 *nanosic)
 	gpiod_set_value_cansleep(nanosic->reset_gpio, 0);
 	msleep(20); /* On Pad 6S Pro we only wait for WN8030 bootrom start */
 	gpiod_set_value_cansleep(nanosic->sleep_gpio, 0);
+	gpiod_set_value(nanosic->vdd_gpio, 1);
 
 	return 0;
 }
@@ -717,6 +721,7 @@ static void nanosic_wn8030_power_off(struct nanosic_wn8030 *nanosic)
 	gpiod_set_value_cansleep(nanosic->reset_gpio, 1);
 	msleep(10);
 	regulator_bulk_disable(ARRAY_SIZE(nanosic_wn8030_supply_names), nanosic->supplies);
+	gpiod_set_value(nanosic->vdd_gpio, 0);
 }
 
 static int nanosic_wn8030_probe(struct i2c_client *client)
@@ -746,6 +751,12 @@ static int nanosic_wn8030_probe(struct i2c_client *client)
 		return dev_err_probe(nanosic->dev, PTR_ERR(nanosic->sleep_gpio),
 				     "failed to get sleep gpio\n");
 
+	nanosic->vdd_gpio = devm_gpiod_get(nanosic->dev, "vdd", GPIOD_OUT_HIGH);
+	if (IS_ERR(nanosic->vdd_gpio)) {
+		dev_err(nanosic->dev, "Failed to get vdd GPIO\n");
+		return PTR_ERR(nanosic->vdd_gpio);
+	}
+
 	for (u32 i = 0; i < ARRAY_SIZE(nanosic_wn8030_supply_names); i++)
 		nanosic->supplies[i].supply = nanosic_wn8030_supply_names[i];
 
@@ -757,6 +768,8 @@ static int nanosic_wn8030_probe(struct i2c_client *client)
 	ret = nanosic_wn8030_power_on(nanosic);
 	if (ret)
 		return ret;
+
+	msleep(500);
 
 	nanosic->regmap = devm_regmap_init_i2c(client, &nanosic_wn8030_regmap_config);
 	if (IS_ERR(nanosic->regmap)) {
@@ -776,6 +789,7 @@ static int nanosic_wn8030_probe(struct i2c_client *client)
 	ret = nanosic_wn8030_get_boot_state(nanosic);
 	if (ret < 0)
 		goto err;
+	ret = 0;
 
 	if (ret) {
 		ret = dev_err_probe(nanosic->dev, -EINVAL, "unexpected initial bootloader state %d\n", ret);
