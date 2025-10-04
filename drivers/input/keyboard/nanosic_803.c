@@ -135,8 +135,6 @@ struct nanosic_803_priv {
 	char last_fn_key;
 	int slot_mapping[3];
 	bool finger_down;
-	bool is_keyboard_connected;
-	bool is_touchpad_connected;
 	bool caps_led_on;
 	unsigned long last_touch_time;
 	int last_x, last_y;
@@ -316,6 +314,11 @@ static int nanosic_register_keyboard(struct nanosic_803_priv *nanosic_dev)
 	struct input_dev *keyboard_input_dev;
 	int ret;
 
+	if (nanosic_dev->keyboard_input_dev) {
+		dev_dbg(nanosic_dev->dev, "register_keyboard: keyboard input device is already registered\n");
+		return 0;
+	}
+
 	// Allocating keyboard device
 	keyboard_input_dev = devm_input_allocate_device(nanosic_dev->dev);
 	if (!keyboard_input_dev) {
@@ -355,6 +358,11 @@ static int nanosic_register_touchpad(struct nanosic_803_priv *nanosic_dev)
 	struct input_dev *touchpad_input_dev;
 	int ret;
 	unsigned int touchpad_resolution_x, touchpad_resolution_y;
+
+	if (nanosic_dev->touchpad_input_dev) {
+		dev_dbg(nanosic_dev->dev, "register_touchpad: touchpad input device is already registered\n");
+		return 0;
+	}
 
 	// Get touchpad resolution
 	if (of_property_read_u32(nanosic_dev->dev->of_node, "touchpad-resolution-x", &touchpad_resolution_x)) {
@@ -410,26 +418,23 @@ static int nanosic_register_touchpad(struct nanosic_803_priv *nanosic_dev)
 
 static void nanosic_handle_hall(struct nanosic_803_priv *nanosic_dev, char *buf)
 {
-	if (buf[5] == 0x38 && buf[6] == 0x80 && buf[7] == 0xa2) {
-		bool was_keyboard_connected = nanosic_dev->is_keyboard_connected;
-		bool was_touchpad_connected = nanosic_dev->is_touchpad_connected;
-
+	if (buf[5] == 0x38 && buf[6] == 0x80 && buf[7] == 0xA2) {
 		if (buf[12] == 0x23) {
 			dev_dbg(nanosic_dev->dev, "registering input devices\n");
-			nanosic_dev->is_keyboard_connected = true;
-			nanosic_dev->is_touchpad_connected = true;
-			if (nanosic_dev->is_keyboard_connected != was_keyboard_connected)
+			if (!nanosic_dev->keyboard_input_dev)
 				nanosic_register_keyboard(nanosic_dev);
-			if (nanosic_dev->is_touchpad_connected != was_touchpad_connected)
+			if (!nanosic_dev->touchpad_input_dev)
 				nanosic_register_touchpad(nanosic_dev);
 		} else if (buf[12] == 0x0) {
 			dev_dbg(nanosic_dev->dev, "unregistering input devices\n");
-			nanosic_dev->is_keyboard_connected = false;
-			nanosic_dev->is_touchpad_connected = false;
-			if (nanosic_dev->is_keyboard_connected != was_keyboard_connected)
+			if (nanosic_dev->keyboard_input_dev) {
 				input_unregister_device(nanosic_dev->keyboard_input_dev);
-			if (nanosic_dev->is_touchpad_connected != was_touchpad_connected)
+				nanosic_dev->keyboard_input_dev = NULL;
+			}
+			if (nanosic_dev->touchpad_input_dev) {
 				input_unregister_device(nanosic_dev->touchpad_input_dev);
+				nanosic_dev->touchpad_input_dev = NULL;
+			}
 		}
 	}
 }
@@ -460,6 +465,11 @@ static void nanosic_handle_keyboard(struct nanosic_803_priv *nanosic_dev, char *
 {
 	int i, j;
 	int found;
+
+	if (!nanosic_dev->keyboard_input_dev) {
+		nanosic_register_keyboard(nanosic_dev);
+		msleep(100);
+	}
 
 	nanosic_handle_modifiers(nanosic_dev, buf[4]);
 
@@ -497,6 +507,11 @@ static void nanosic_handle_keyboard(struct nanosic_803_priv *nanosic_dev, char *
 
 static void nanosic_handle_fn_key(struct nanosic_803_priv *nanosic_dev, char *buf)
 {
+	if (!nanosic_dev->keyboard_input_dev) {
+		nanosic_register_keyboard(nanosic_dev);
+		msleep(100);
+	}
+
 	if (buf[4] != nanosic_dev->last_fn_key) {
 		if (nanosic_dev->last_fn_key != 0x00) {
 			dev_dbg(nanosic_dev->dev, "Key released: 0x%02X\n", nanosic_dev->last_fn_key);
@@ -530,6 +545,11 @@ static void nanosic_touch_timer_callback(struct timer_list *t)
 static void nanosic_handle_touchpad_mt(struct nanosic_803_priv *nanosic_dev, char *buf)
 {
 	int finger_id, x, y;
+
+	if (!nanosic_dev->touchpad_input_dev) {
+		nanosic_register_touchpad(nanosic_dev);
+		msleep(100);
+	}
 
 	for (int i = 0; i < 3; i++) {
 		int offset = 6 + (i * 6);
@@ -768,9 +788,6 @@ static int nanosic_803_probe(struct i2c_client *client)
 
 	timer_setup(&nanosic_dev->finger_timer, nanosic_touch_timer_callback, 0);
 	nanosic_dev->finger_down = false;
-	nanosic_dev->is_keyboard_connected = false;
-	nanosic_dev->is_touchpad_connected = false;
-
 	return 0;
 
 err_regulator_disable:
