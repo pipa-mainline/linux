@@ -97,14 +97,14 @@ static const unsigned int hid_to_linux_keycode[] = {
 };
 
 static const uint16_t hid_modifier_to_linux_keycode[8] = {
-    KEY_LEFTCTRL,
-    KEY_LEFTSHIFT,
-    KEY_LEFTALT,
-    KEY_LEFTMETA,
-    KEY_RIGHTCTRL,
-    KEY_RIGHTSHIFT,
-    KEY_RIGHTALT,
-    KEY_RIGHTMETA
+	KEY_LEFTCTRL,
+	KEY_LEFTSHIFT,
+	KEY_LEFTALT,
+	KEY_LEFTMETA,
+	KEY_RIGHTCTRL,
+	KEY_RIGHTSHIFT,
+	KEY_RIGHTALT,
+	KEY_RIGHTMETA
 };
 
 static const struct regmap_config nanosic_803_regmap_config = {
