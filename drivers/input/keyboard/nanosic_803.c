@@ -30,6 +30,21 @@
 #define TOUCH_TIMEOUT_MS 75
 #define INT_ADDR_MAX_BYTES 4
 
+static char *command_name[] = {
+	[0x01] = "Get version ()",
+	[0x23] = "Set backlight (0-100)",
+	[0x25] = "Set power state (off/on)",
+	[0x26] = "Set caps LED (off/on)",
+	[0x30] = "Get value (value_id)",
+	[0x31] = "MIAUTH (???)",
+	[0x36] = "NFC? (???)",
+	[0x52] = "Request G-Sensor data ()",
+	[0xA1] = "Request hall info ()",
+
+	// will be shown for every other command
+	[0xFF] = "Unknown"
+};
+
 static const unsigned int hid_to_linux_keycode[] = {
 	[0x04] = KEY_A,
 	[0x05] = KEY_B,
@@ -144,9 +159,85 @@ struct nanosic_803_priv {
 	struct dentry *debugfs_root;
 };
 
-static void nanosic_print_cmd(struct nanosic_803_priv *nanosic_dev, const char *prefix, const u8 *buf, size_t len)
+struct nanosic_message_header {
+	u8 header; // 0x32 for outgoing messages, ignored by checksum
+	u8 counter; // always 0 for outgoing messages
+	u8 unknown0; // 0x4E or 0x4F
+	u8 message_type; // 30 or 31
+	u8 src; // sender
+	u8 dst; // recipient
+	u8 cmd_id; // command id
+	u8 data_length; // data length in bytes
+};
+
+static void nanosic_print_cmd(struct nanosic_803_priv *nanosic_dev, char *prefix, char *buf, int len)
 {
 	print_hex_dump_debug(prefix, DUMP_PREFIX_NONE, 32, 1, buf, len, true);
+}
+
+/*
+ * Nanosic command format:
+ *  byte 0: Header (0x32 for outgoing messages, ignored by checksum)
+ *  byte 1: Counter (always 0 for outgoing messages)
+ *  byte 2: Unknown (0x4E or 0x4F)
+ *  byte 3: Message Type
+ *  byte 4: Source Address
+ *  byte 5: Destination Address
+ *  byte 6: Command ID
+ *  byte 7: Data Length (N)
+ *  byte 8..8+N-1: Data payload
+ *  byte 8+N: Checksum
+ */
+static int nanosic_send_command(struct nanosic_803_priv *nanosic_dev, char *cmd, size_t cmd_size)
+{
+	char cmd_buf[I2C_DATA_LENGTH_WRITE];
+	char *cmd_name;
+	int checksum = 0;
+	int i = 0;
+	int length_total;
+
+	struct nanosic_message_header *message_header = (struct nanosic_message_header *)cmd;
+
+	if (cmd_size < 8) {
+		dev_err(nanosic_dev->dev, "Command is too short: %zu < 8", cmd_size);
+		return -EINVAL;
+	}
+
+	length_total = 8 + message_header->data_length + 1;
+
+	cmd_name = command_name[message_header->cmd_id];
+	if (!cmd_name)
+		cmd_name = command_name[0xFF];
+
+	dev_dbg(nanosic_dev->dev, "Sending %s command_id=%X %X->%X data_length=%d\n",
+		 cmd_name,
+		 message_header->cmd_id,
+		 message_header->src,
+		 message_header->dst,
+		 message_header->data_length);
+
+	if (cmd_size > I2C_DATA_LENGTH_WRITE) {
+		dev_err(nanosic_dev->dev, "Command is too large: %zu bytes (max is %d)\n",
+			cmd_size, I2C_DATA_LENGTH_WRITE);
+		return -EINVAL;
+	}
+
+	if (length_total > I2C_DATA_LENGTH_WRITE) {
+		dev_err(nanosic_dev->dev, "Calculated total length (%d bytes) exceeds buffer size (%d bytes)\n",
+			length_total, I2C_DATA_LENGTH_WRITE);
+		return -EINVAL;
+	}
+
+	memcpy(cmd_buf, cmd, cmd_size);
+
+	for (i = 2; i < length_total - 1; i++)
+		checksum += cmd[i];
+
+	cmd_buf[length_total - 1] = checksum;
+
+	nanosic_print_cmd(nanosic_dev, "nanosic: sending command: ", cmd_buf, length_total);
+
+	return regmap_raw_write(nanosic_dev->regmap, 0, cmd_buf, sizeof(cmd_buf));
 }
 
 static void nanosic_803_wakeup(struct nanosic_803_priv *nanosic_dev)
@@ -180,42 +271,6 @@ static void nanosic_803_wakeup(struct nanosic_803_priv *nanosic_dev)
 	}
 }
 
-static int nanosic_803_read_version(struct nanosic_803_priv *nanosic_dev)
-{
-	char rsp[I2C_DATA_LENGTH_READ] = {0};
-	char cmd[10] = {
-		0x32, 0x00, 0x4F, 0x30, 0x80,
-		0x18, 0x01, 0x00, 0x18
-	};
-	char hex_dump[3 * I2C_DATA_LENGTH_READ + 1] = {0};
-	u8 retry = 0;
-	int ret = -1;
-
-	while (retry++ < 30) {
-		nanosic_print_cmd(nanosic_dev, "read_version cmd: ", cmd, sizeof(cmd));
-		ret = regmap_raw_write(nanosic_dev->regmap, 0, cmd, sizeof(cmd));
-		if (ret < 0) {
-			dev_err(nanosic_dev->dev, "regmap write cmd failed time %d\n", retry);
-			msleep(100);
-			continue;
-		}
-		msleep(2);
-
-		ret = regmap_raw_read(nanosic_dev->regmap, 0, rsp, sizeof(rsp));
-		if (ret == 0) {
-			for (int i = 0; i < sizeof(rsp); i++) {
-				snprintf(&hex_dump[i * 3], 4, "%02x ", rsp[i]);
-			}
-			dev_err(nanosic_dev->dev, "nanosic chip version: %s\n", hex_dump);
-			dev_err(nanosic_dev->dev, "Version read OK\n");
-			break;
-		}
-		msleep(2);
-	}
-
-	return ret;
-}
-
 static int nanosic_i2c_read(struct nanosic_803_priv *nanosic_dev, void *buf, size_t len)
 {
 	int ret = i2c_master_recv(nanosic_dev->client, buf, len);
@@ -233,29 +288,54 @@ static int nanosic_i2c_read(struct nanosic_803_priv *nanosic_dev, void *buf, siz
 	return ret;
 }
 
+static int nanosic_803_read_version(struct nanosic_803_priv *nanosic_dev)
+{
+	char rsp[I2C_DATA_LENGTH_READ] = {0};
+	char cmd[] = {
+		0x32, 0x00, 0x4F, 0x30, 0x80,
+		0x18, 0x01, 0x00
+	};
+	u8 retry = 0;
+	int ret = -1;
+
+	while (retry++ < 30) {
+		ret = nanosic_send_command(nanosic_dev, cmd, sizeof(cmd));
+		if (ret < 0) {
+			dev_err(nanosic_dev->dev, "regmap write cmd failed time %d\n", retry);
+			msleep(100);
+			continue;
+		}
+		msleep(2);
+
+		ret = nanosic_i2c_read(nanosic_dev, rsp, sizeof(rsp));
+		if (ret > 0) {
+			nanosic_print_cmd(nanosic_dev, "nanosic chip version: ", rsp, sizeof(rsp));
+			dev_err(nanosic_dev->dev, "Version read OK\n");
+			break;
+		}
+		msleep(2);
+	}
+
+	return ret;
+}
+
 static void nanosic_sync_caps_led(struct work_struct *work)
 {
 	struct nanosic_803_priv *nanosic_dev = container_of(work, struct nanosic_803_priv, led_work);
-	int i = 0, ret = 0;
+	int ret = 0;
 
 	dev_dbg(nanosic_dev->dev, "setting caps led: %d\n", nanosic_dev->caps_led_on);
-	char cmd[10] = {
+	char cmd[] = {
 		0x32, 0x00, 0x4E, 0x31,
 		0x80, 0x38, 0x26, 0x01, nanosic_dev->caps_led_on
 	};
 
-	for (i = 2; i < 9; i++) {
-		cmd[9] += cmd[i];
-	}
-
 	mutex_lock(&nanosic_dev->i2c_mutex);
 	nanosic_803_wakeup(nanosic_dev);
-	nanosic_print_cmd(nanosic_dev, "sync_caps_led cmd: ", cmd, sizeof(cmd));
-	ret = regmap_raw_write(nanosic_dev->regmap, 0, cmd, sizeof(cmd));
+	ret = nanosic_send_command(nanosic_dev, cmd, sizeof(cmd));
 	mutex_unlock(&nanosic_dev->i2c_mutex);
-	if (ret < 0) {
+	if (ret < 0)
 		dev_err(nanosic_dev->dev, "could not set caps led");
-	}
 }
 
 static int nanosic_event(struct input_dev *dev, unsigned int type, unsigned int code, int value)
@@ -577,22 +657,18 @@ static irqreturn_t nanosic_interrupt_thread_fn(int irq, void *dev_id)
 	struct nanosic_803_priv *nanosic_dev = dev_id;
 	int ret;
 	char buf[I2C_DATA_LENGTH_READ] = {0};
-	char hex_dump[3 * I2C_DATA_LENGTH_READ + 1] = {0};
 
 	usleep_range(1000, 5000);
 
 	mutex_lock(&nanosic_dev->i2c_mutex);
 	ret = nanosic_i2c_read(nanosic_dev, buf, sizeof(buf));
 	mutex_unlock(&nanosic_dev->i2c_mutex);
-	if (ret == 0) {
+	if (ret <= 0) {
 		dev_err(nanosic_dev->dev, "Failed to read data on interrupt: %d\n", ret);
 		return IRQ_HANDLED;
 	}
 
-	for (int i = 0; i < ret; i++) {
-		snprintf(&hex_dump[i * 3], 4, "%02x ", buf[i]);
-	}
-	dev_dbg(nanosic_dev->dev, "nanosic message: %s\n", hex_dump);
+	nanosic_print_cmd(nanosic_dev, "nanosic message: ", buf, ret);
 
 	if (buf[0] != 0x57 || buf[2] == 0) {
 		dev_dbg(nanosic_dev->dev, "Malformed message\n");
@@ -722,12 +798,12 @@ static ssize_t nanosic_debugfs_cmd_write(struct file *file, const char __user *u
 
 	dev_dbg(nanosic_dev->dev, "Sending command of length %zu\n", cmd_len);
 
-	nanosic_print_cmd(nanosic_dev, "debugfs_write cmd: ", cmd_buf, cmd_len);
+	nanosic_print_cmd(nanosic_dev, "nanosic: debugfs_write cmd: ", cmd_buf, cmd_len);
 
 	mutex_lock(&nanosic_dev->i2c_mutex);
 	nanosic_803_wakeup(nanosic_dev);
 	dev_dbg(nanosic_dev->dev, "reset pin: %d, sleep pin: %d\n", gpiod_get_value(nanosic_dev->reset_gpio), gpiod_get_value(nanosic_dev->sleep_gpio));
-	ret = regmap_raw_write(nanosic_dev->regmap, 0, cmd_buf, cmd_len);
+	ret = nanosic_send_command(nanosic_dev, cmd_buf, cmd_len);
 	mutex_unlock(&nanosic_dev->i2c_mutex);
 
 	if (ret < 0) {
@@ -903,7 +979,7 @@ static int nanosic_803_probe(struct i2c_client *client)
 	i2c_set_clientdata(client, nanosic_dev);
 
 	// Try to identify the chip
-	if(nanosic_803_read_version(nanosic_dev)) {
+	if (nanosic_803_read_version(nanosic_dev) <= 0) {
 		dev_err(dev, "Nanosic 803 not found\n");
 		return -ENODEV;
 	}
