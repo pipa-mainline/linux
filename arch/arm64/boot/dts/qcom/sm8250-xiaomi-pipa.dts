@@ -785,10 +785,10 @@
 		compatible = "nanosic,803";
 		status = "okay";
 		reg = <0x4c>;
-		reset-gpios = <&tlmm 141 0x00>;
-		sleep-gpios = <&tlmm 155 0x00>;
-		vdd-gpios = <&tlmm 127 0x00>;
-		irq-gpios = <&tlmm 100 0x6001>;
+		reset-gpios = <&tlmm 141 GPIO_ACTIVE_LOW>;
+		sleep-gpios = <&tlmm 155 GPIO_ACTIVE_LOW>;
+		vdd-gpios = <&tlmm 127 GPIO_ACTIVE_HIGH>;
+		irq-gpios = <&tlmm 100 IRQ_TYPE_EDGE_RISING>;
 		touchpad-resolution-x = <2879>;
 		touchpad-resolution-y = <1799>;
 		vdd_1v8-supply = <&vreg_l4c_1p8>;
