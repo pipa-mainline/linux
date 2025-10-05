@@ -20,6 +20,9 @@
 #include <linux/of.h>
 #include <linux/regmap.h>
 #include <linux/mutex.h>
+#include <linux/debugfs.h>
+#include <linux/uaccess.h>
+#include <linux/ctype.h>
 
 #define I2C_DATA_LENGTH_READ (68)
 #define I2C_DATA_LENGTH_WRITE (66)
@@ -138,6 +141,7 @@ struct nanosic_803_priv {
 	bool caps_led_on;
 	unsigned long last_touch_time;
 	int last_x, last_y;
+	struct dentry *debugfs_root;
 };
 
 static void nanosic_print_cmd(struct nanosic_803_priv *nanosic_dev, const char *prefix, const u8 *buf, size_t len)
@@ -637,6 +641,178 @@ static void nanosic_803_reset(struct nanosic_803_priv *nanosic_dev)
 	gpiod_set_value(nanosic_dev->sleep_gpio, 0);
 }
 
+static int hex_str_to_bin(u8 *bin, const char *hex, size_t *bin_len)
+{
+	size_t hex_len = strlen(hex);
+	size_t max_len = *bin_len;
+	size_t count = 0;
+	int i;
+	int nibble = -1; // -1: look for high nibble, 1: look for low nibble
+
+	for (i = 0; i < hex_len; i++) {
+		char c = hex[i];
+		int val;
+
+		if (isspace(c))
+			continue;
+
+		val = hex_to_bin(c);
+		if (val < 0) {
+			pr_err("Invalid character '%c' in hex string\n", c);
+			return -EINVAL;
+		}
+
+		if (nibble < 0) {
+			if (count >= max_len)
+				return -ENOSPC; // Output buffer is full
+			bin[count] = val << 4;
+			nibble = 1;
+		} else {
+			bin[count] |= val;
+			count++;
+			nibble = -1;
+		}
+	}
+
+	if (nibble > 0) {
+		pr_err("Odd number of hex digits in string\n");
+		return -EINVAL;
+	}
+
+	*bin_len = count;
+	return 0;
+}
+
+
+static ssize_t nanosic_debugfs_cmd_write(struct file *file, const char __user *ubuf,
+					 size_t count, loff_t *ppos)
+{
+	struct nanosic_803_priv *nanosic_dev = file->private_data;
+	char *user_buf;
+	u8 *cmd_buf;
+	int ret;
+	size_t cmd_len = I2C_DATA_LENGTH_WRITE;
+
+	if (!nanosic_dev) {
+		pr_err("debugfs write called with NULL private data\n");
+		return -EIO;
+	}
+
+	user_buf = memdup_user_nul(ubuf, count);
+	if (IS_ERR(user_buf))
+		return PTR_ERR(user_buf);
+
+	cmd_buf = kmalloc(cmd_len, GFP_KERNEL);
+	if (!cmd_buf) {
+		kfree(user_buf);
+		return -ENOMEM;
+	}
+
+	ret = hex_str_to_bin(cmd_buf, user_buf, &cmd_len);
+	if (ret) {
+		dev_err(nanosic_dev->dev, "Failed to parse hex string: %d\n", ret);
+		goto out;
+	}
+
+	if (cmd_len == 0) {
+		dev_warn(nanosic_dev->dev, "Empty command after parsing\n");
+		ret = count;
+		goto out;
+	}
+
+	dev_dbg(nanosic_dev->dev, "Sending command of length %zu\n", cmd_len);
+
+	nanosic_print_cmd(nanosic_dev, "debugfs_write cmd: ", cmd_buf, cmd_len);
+
+	mutex_lock(&nanosic_dev->i2c_mutex);
+	nanosic_803_wakeup(nanosic_dev);
+	dev_dbg(nanosic_dev->dev, "reset pin: %d, sleep pin: %d\n", gpiod_get_value(nanosic_dev->reset_gpio), gpiod_get_value(nanosic_dev->sleep_gpio));
+	ret = regmap_raw_write(nanosic_dev->regmap, 0, cmd_buf, cmd_len);
+	mutex_unlock(&nanosic_dev->i2c_mutex);
+
+	if (ret < 0) {
+		dev_err(nanosic_dev->dev, "Failed to write command via regmap: %d\n", ret);
+	} else {
+		ret = count;
+	}
+
+out:
+	kfree(cmd_buf);
+	kfree(user_buf);
+	return ret;
+}
+
+static ssize_t nanosic_debugfs_sleep_read(struct file *file, char __user *ubuf,
+					  size_t count, loff_t *ppos)
+{
+	struct nanosic_803_priv *nanosic_dev = file->private_data;
+	char buf[4];
+	int level;
+	size_t len;
+
+	if (*ppos > 0)
+		return 0;
+
+	level = gpiod_get_value_cansleep(nanosic_dev->sleep_gpio);
+	if (level < 0)
+		return level;
+
+	len = scnprintf(buf, sizeof(buf), "%d\n", level);
+
+	return simple_read_from_buffer(ubuf, count, ppos, buf, len);
+}
+
+static ssize_t nanosic_debugfs_sleep_write(struct file *file, const char __user *ubuf,
+					   size_t count, loff_t *ppos)
+{
+	struct nanosic_803_priv *nanosic_dev = file->private_data;
+	long val;
+	int ret;
+
+	ret = kstrtol_from_user(ubuf, count, 0, &val);
+	if (ret)
+		return ret;
+
+	if (val != 0 && val != 1)
+		return -EINVAL;
+
+	dev_dbg(nanosic_dev->dev, "debugfs: setting sleep_gpio to %ld\n", val);
+	gpiod_set_value_cansleep(nanosic_dev->sleep_gpio, val);
+
+	return count;
+}
+
+static const struct file_operations nanosic_debugfs_cmd_fops = {
+	.owner   = THIS_MODULE,
+	.open    = simple_open,
+	.write   = nanosic_debugfs_cmd_write,
+	.llseek  = noop_llseek,
+};
+static const struct file_operations nanosic_debugfs_sleep_fops = {
+	.owner   = THIS_MODULE,
+	.open    = simple_open,
+	.read    = nanosic_debugfs_sleep_read,
+	.write   = nanosic_debugfs_sleep_write,
+	.llseek  = default_llseek,
+};
+static void nanosic_debugfs_init(struct nanosic_803_priv *nanosic_dev)
+{
+	nanosic_dev->debugfs_root = debugfs_create_dir("nanosic_803", NULL);
+	if (IS_ERR_OR_NULL(nanosic_dev->debugfs_root)) {
+		dev_err(nanosic_dev->dev, "Failed to create debugfs directory\n");
+		nanosic_dev->debugfs_root = NULL;
+		return;
+	}
+
+	debugfs_create_file("send_command", 0200, nanosic_dev->debugfs_root, nanosic_dev, &nanosic_debugfs_cmd_fops);
+	debugfs_create_file("sleep_pin", 0644, nanosic_dev->debugfs_root, nanosic_dev, &nanosic_debugfs_sleep_fops);
+}
+
+static void nanosic_debugfs_remove(struct nanosic_803_priv *nanosic_dev)
+{
+	debugfs_remove_recursive(nanosic_dev->debugfs_root);
+}
+
 static int nanosic_803_probe(struct i2c_client *client)
 {
 	struct nanosic_803_priv *nanosic_dev;
@@ -756,6 +932,9 @@ static int nanosic_803_probe(struct i2c_client *client)
 
 	timer_setup(&nanosic_dev->finger_timer, nanosic_touch_timer_callback, 0);
 	nanosic_dev->finger_down = false;
+
+	nanosic_debugfs_init(nanosic_dev);
+
 	return 0;
 
 err_regulator_disable:
@@ -769,6 +948,8 @@ static void nanosic_803_remove(struct i2c_client *client)
 	struct nanosic_803_priv *nanosic_dev = i2c_get_clientdata(client);
 
 	free_irq(nanosic_dev->irq_number, nanosic_dev);
+
+	nanosic_debugfs_remove(nanosic_dev);
 
 	cancel_work_sync(&nanosic_dev->led_work);
 	destroy_workqueue(nanosic_dev->wq);
