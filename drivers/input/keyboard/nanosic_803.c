@@ -761,6 +761,32 @@ static int nanosic_803_probe(struct i2c_client *client)
 	return 0;
 }
 
+static void nanosic_803_remove(struct i2c_client *client)
+{
+	struct nanosic_803_priv *nanosic_dev = i2c_get_clientdata(client);
+
+	free_irq(nanosic_dev->irq_number, nanosic_dev);
+
+	cancel_work_sync(&nanosic_dev->led_work);
+	destroy_workqueue(nanosic_dev->wq);
+
+	gpiod_set_value(nanosic_dev->reset_gpio, 0);
+	gpiod_set_value(nanosic_dev->sleep_gpio, 0);
+
+	gpiod_set_value(nanosic_dev->vdd_gpio, 0);
+
+	if (regulator_disable(nanosic_dev->vdd_1v8))
+		dev_err(nanosic_dev->dev, "Failed to disable 1.8V regulator\n");
+
+	if (regulator_disable(nanosic_dev->vdd_3v3))
+		dev_err(nanosic_dev->dev, "Failed to disable 3.3V regulator\n");
+
+	if (nanosic_dev->keyboard_input_dev)
+		input_unregister_device(nanosic_dev->keyboard_input_dev);
+	if (nanosic_dev->touchpad_input_dev)
+		input_unregister_device(nanosic_dev->touchpad_input_dev);
+}
+
 static int nanosic_803_suspend(struct device *dev)
 {
 	struct nanosic_803_priv *nanosic_dev = dev_get_drvdata(dev);
@@ -828,6 +854,7 @@ static struct i2c_driver nanosic_803_driver = {
 		.pm = pm_sleep_ptr(&nanosic_803_pm_ops),
 	},
 	.probe = nanosic_803_probe,
+	.remove = nanosic_803_remove,
 };
 
 module_i2c_driver(nanosic_803_driver);
