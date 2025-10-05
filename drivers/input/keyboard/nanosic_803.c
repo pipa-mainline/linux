@@ -827,6 +827,7 @@ static int nanosic_803_resume(struct device *dev)
 	ret = regulator_enable(nanosic_dev->vdd_3v3);
 	if (ret) {
 		dev_err(dev, "Failed to enable 3.3V regulator\n");
+		regulator_disable(nanosic_dev->vdd_1v8);
 		return ret;
 	}
 
