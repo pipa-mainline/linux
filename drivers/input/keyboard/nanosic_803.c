@@ -431,7 +431,7 @@ static void nanosic_handle_hall(struct nanosic_803_priv *nanosic_dev, char *buf)
 	}
 }
 
-static void handle_modifiers(struct nanosic_803_priv *nanosic_dev, char modifiers)
+static void nanosic_handle_modifiers(struct nanosic_803_priv *nanosic_dev, char modifiers)
 {
 	char last_modifiers = nanosic_dev->last_modifier_state;
 
@@ -458,7 +458,7 @@ static void nanosic_handle_keyboard(struct nanosic_803_priv *nanosic_dev, char *
 	int i, j;
 	int found;
 
-	handle_modifiers(nanosic_dev, buf[4]);
+	nanosic_handle_modifiers(nanosic_dev, buf[4]);
 
 	for (i = 0; i < 5 && buf[6+i] != 0x00; ++i) {
 		found = 0;
