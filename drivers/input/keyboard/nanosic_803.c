@@ -214,6 +214,7 @@ struct nanosic_803_priv {
 	struct regulator *vdd_3v3;
 	struct workqueue_struct	*wq;
 	struct work_struct led_work;
+	struct delayed_work led_blink_work;
 	struct timer_list finger_timer;
 	struct mutex i2c_mutex;
 	unsigned int irq_number;
@@ -225,6 +226,12 @@ struct nanosic_803_priv {
 	bool caps_led_on;
 	bool caps_as_second_layer_key;
 	bool second_layer_active;
+	enum {
+		LED_STATE_NORMAL,
+		LED_STATE_BLINK_N_TIMES,
+		LED_STATE_CONTINUOUS_BLINK,
+	} led_state;
+	int led_blink_halfperiod_count;
 	unsigned long last_touch_time;
 	int last_x, last_y;
 	struct dentry *debugfs_root;
@@ -390,21 +397,64 @@ static int nanosic_803_read_version(struct nanosic_803_priv *nanosic_dev)
 	return ret;
 }
 
-static void nanosic_sync_caps_led(struct work_struct *work)
+static int nanosic_set_caps_led_state(struct nanosic_803_priv *nanosic_dev, bool on)
 {
-	struct nanosic_803_priv *nanosic_dev = container_of(work, struct nanosic_803_priv, led_work);
-	int ret = 0;
-
-	dev_dbg(nanosic_dev->dev, "setting caps led: %d\n", nanosic_dev->caps_led_on);
 	char cmd[] = {
 		0x32, 0x00, 0x4E, 0x31,
-		0x80, 0x38, 0x26, 0x01, nanosic_dev->caps_led_on
+		0x80, 0x38, 0x26, 0x01, on
 	};
+	int ret;
 
 	mutex_lock(&nanosic_dev->i2c_mutex);
 	nanosic_803_wakeup(nanosic_dev);
 	ret = nanosic_send_command(nanosic_dev, cmd, sizeof(cmd));
 	mutex_unlock(&nanosic_dev->i2c_mutex);
+
+	return ret;
+}
+
+static void nanosic_led_blink_worker(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct nanosic_803_priv *nanosic_dev = container_of(dwork, struct nanosic_803_priv, led_blink_work);
+	bool led_on;
+
+	switch (nanosic_dev->led_state) {
+	case LED_STATE_BLINK_N_TIMES:
+		if (nanosic_dev->led_blink_halfperiod_count > 0) {
+			led_on = nanosic_dev->led_blink_halfperiod_count % 2;
+			nanosic_set_caps_led_state(nanosic_dev, led_on);
+			nanosic_dev->led_blink_halfperiod_count--;
+			schedule_delayed_work(&nanosic_dev->led_blink_work, msecs_to_jiffies(100));
+		} else {
+			nanosic_dev->led_state = LED_STATE_NORMAL;
+			nanosic_set_caps_led_state(nanosic_dev, nanosic_dev->caps_led_on);
+		}
+		break;
+	case LED_STATE_CONTINUOUS_BLINK:
+		led_on = !nanosic_dev->led_blink_halfperiod_count;
+		nanosic_set_caps_led_state(nanosic_dev, led_on);
+		nanosic_dev->led_blink_halfperiod_count = led_on;
+		schedule_delayed_work(&nanosic_dev->led_blink_work, msecs_to_jiffies(150));
+		break;
+	default: /* LED_STATE_NORMAL */
+		nanosic_set_caps_led_state(nanosic_dev, nanosic_dev->caps_led_on);
+		break;
+	}
+}
+
+static void nanosic_sync_caps_led(struct work_struct *work)
+{
+	struct nanosic_803_priv *nanosic_dev = container_of(work, struct nanosic_803_priv, led_work);
+	int ret = 0;
+
+	/* Do not interfere with special blinking modes */
+	if (nanosic_dev->led_state != LED_STATE_NORMAL)
+		return;
+
+	dev_dbg(nanosic_dev->dev, "setting caps led: %d\n", nanosic_dev->caps_led_on);
+
+	ret = nanosic_set_caps_led_state(nanosic_dev, nanosic_dev->caps_led_on);
 	if (ret < 0)
 		dev_err(nanosic_dev->dev, "could not set caps led");
 }
@@ -611,6 +661,10 @@ static void nanosic_handle_keyboard(struct nanosic_803_priv *nanosic_dev, char *
 			if (nanosic_dev->caps_as_second_layer_key && keycode == KEY_CAPSLOCK) {
 				dev_dbg(nanosic_dev->dev, "Second layer");
 				nanosic_dev->second_layer_active = true;
+				cancel_delayed_work_sync(&nanosic_dev->led_blink_work);
+				nanosic_dev->led_state = LED_STATE_CONTINUOUS_BLINK;
+				nanosic_dev->led_blink_halfperiod_count = 0; /* Start with LED on */
+				schedule_delayed_work(&nanosic_dev->led_blink_work, 0);
 				continue;
 			}
 			if (nanosic_dev->second_layer_active)
@@ -634,6 +688,9 @@ static void nanosic_handle_keyboard(struct nanosic_803_priv *nanosic_dev, char *
 			if (nanosic_dev->caps_as_second_layer_key && keycode == KEY_CAPSLOCK) {
 				dev_dbg(nanosic_dev->dev, "First layer");
 				nanosic_dev->second_layer_active = false;
+				cancel_delayed_work_sync(&nanosic_dev->led_blink_work);
+				nanosic_dev->led_state = LED_STATE_NORMAL;
+				queue_work(nanosic_dev->wq, &nanosic_dev->led_work);
 				continue;
 			}
 
@@ -673,6 +730,16 @@ static void nanosic_handle_fn_key(struct nanosic_803_priv *nanosic_dev, char *bu
 			 */
 			nanosic_dev->caps_as_second_layer_key = !nanosic_dev->caps_as_second_layer_key;
 			dev_dbg(nanosic_dev->dev, "Caps Lock as second layer key: %d\n", nanosic_dev->caps_as_second_layer_key);
+			if (nanosic_dev->caps_as_second_layer_key) {
+				cancel_delayed_work_sync(&nanosic_dev->led_blink_work);
+				nanosic_dev->led_state = LED_STATE_BLINK_N_TIMES;
+				nanosic_dev->led_blink_halfperiod_count = 9;
+				schedule_delayed_work(&nanosic_dev->led_blink_work, 0);
+			} else {
+				cancel_delayed_work_sync(&nanosic_dev->led_blink_work);
+				nanosic_dev->led_state = LED_STATE_NORMAL;
+				queue_work(nanosic_dev->wq, &nanosic_dev->led_work);
+			}
 		}
 		nanosic_dev->last_fn_key = buf[4];
 	}
@@ -1004,6 +1071,7 @@ static int nanosic_803_probe(struct i2c_client *client)
 
 	nanosic_dev->wq = create_singlethread_workqueue("nanosic_wq");
 	INIT_WORK(&nanosic_dev->led_work, nanosic_sync_caps_led);
+	INIT_DELAYED_WORK(&nanosic_dev->led_blink_work, nanosic_led_blink_worker);
 
 	// Get GPIOs
 	nanosic_dev->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
@@ -1126,6 +1194,7 @@ static void nanosic_803_remove(struct i2c_client *client)
 
 	nanosic_debugfs_remove(nanosic_dev);
 
+	cancel_delayed_work_sync(&nanosic_dev->led_blink_work);
 	cancel_work_sync(&nanosic_dev->led_work);
 	destroy_workqueue(nanosic_dev->wq);
 
