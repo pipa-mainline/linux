@@ -646,7 +646,7 @@ static int nanosic_803_probe(struct i2c_client *client)
 	struct nanosic_803_priv *nanosic_dev;
 	struct device *dev = &client->dev;
 	struct regmap *map;
-	unsigned int ret;
+	int ret;
 
 	nanosic_dev = devm_kzalloc(dev, sizeof(*nanosic_dev), GFP_KERNEL);
 	if (!nanosic_dev)
@@ -693,6 +693,7 @@ static int nanosic_803_probe(struct i2c_client *client)
 	nanosic_dev->vdd_3v3 = devm_regulator_get(dev, "vdd_3v3");
 	if (IS_ERR(nanosic_dev->vdd_3v3)) {
 		dev_err(dev, "Failed to get 3.3V regulator\n");
+		regulator_disable(nanosic_dev->vdd_1v8);
 		return PTR_ERR(nanosic_dev->vdd_3v3);
 	}
 
@@ -717,8 +718,10 @@ static int nanosic_803_probe(struct i2c_client *client)
 
 	// Set up regmap
 	map = devm_regmap_init_i2c(client, &nanosic_803_regmap_config);
-	if (IS_ERR(map))
-		return PTR_ERR(map);
+	if (IS_ERR(map)) {
+		ret = PTR_ERR(map);
+		goto err_regulator_disable;
+	}
 
 	nanosic_dev->client = client;
 	nanosic_dev->regmap = map;
@@ -737,7 +740,8 @@ static int nanosic_803_probe(struct i2c_client *client)
 	nanosic_dev->irq_number = gpiod_to_irq(nanosic_dev->irq_gpio);
 	if (nanosic_dev->irq_number < 0) {
 		dev_err(nanosic_dev->dev, "Failed to get IRQ for GPIO %d\n", desc_to_gpio(nanosic_dev->irq_gpio));
-		return nanosic_dev->irq_number;
+		ret = nanosic_dev->irq_number;
+		goto err_regulator_disable;
 	}
 
 	ret = request_threaded_irq(nanosic_dev->irq_number,
@@ -758,7 +762,13 @@ static int nanosic_803_probe(struct i2c_client *client)
 	nanosic_dev->finger_down = false;
 	nanosic_dev->is_keyboard_connected = false;
 	nanosic_dev->is_touchpad_connected = false;
+
 	return 0;
+
+err_regulator_disable:
+	regulator_disable(nanosic_dev->vdd_3v3);
+	regulator_disable(nanosic_dev->vdd_1v8);
+	return ret;
 }
 
 static void nanosic_803_remove(struct i2c_client *client)
