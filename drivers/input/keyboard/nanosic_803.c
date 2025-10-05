@@ -128,7 +128,7 @@ struct nanosic_803_priv {
 	struct workqueue_struct	*wq;
 	struct work_struct led_work;
 	struct timer_list finger_timer;
-	struct mutex read_mutex;
+	struct mutex i2c_mutex;
 	unsigned int irq_number;
 	char last_pressed_key[5];
 	char last_modifier_state;
@@ -139,6 +139,11 @@ struct nanosic_803_priv {
 	unsigned long last_touch_time;
 	int last_x, last_y;
 };
+
+static void nanosic_print_cmd(struct nanosic_803_priv *nanosic_dev, const char *prefix, const u8 *buf, size_t len)
+{
+	print_hex_dump_debug(prefix, DUMP_PREFIX_NONE, 32, 1, buf, len, true);
+}
 
 static void nanosic_803_wakeup(struct nanosic_803_priv *nanosic_dev)
 {
@@ -174,7 +179,7 @@ static void nanosic_803_wakeup(struct nanosic_803_priv *nanosic_dev)
 static int nanosic_803_read_version(struct nanosic_803_priv *nanosic_dev)
 {
 	char rsp[I2C_DATA_LENGTH_READ] = {0};
-	char cmd[I2C_DATA_LENGTH_WRITE] = {
+	char cmd[10] = {
 		0x32, 0x00, 0x4F, 0x30, 0x80,
 		0x18, 0x01, 0x00, 0x18
 	};
@@ -183,6 +188,7 @@ static int nanosic_803_read_version(struct nanosic_803_priv *nanosic_dev)
 	int ret = -1;
 
 	while (retry++ < 30) {
+		nanosic_print_cmd(nanosic_dev, "read_version cmd: ", cmd, sizeof(cmd));
 		ret = regmap_raw_write(nanosic_dev->regmap, 0, cmd, sizeof(cmd));
 		if (ret < 0) {
 			dev_err(nanosic_dev->dev, "regmap write cmd failed time %d\n", retry);
@@ -208,60 +214,19 @@ static int nanosic_803_read_version(struct nanosic_803_priv *nanosic_dev)
 
 static int nanosic_i2c_read(struct nanosic_803_priv *nanosic_dev, void *buf, size_t len)
 {
-	struct i2c_adapter *adap;
-	unsigned char addr[INT_ADDR_MAX_BYTES];
-	struct i2c_msg msg[2];
-	int ret;
+	int ret = i2c_master_recv(nanosic_dev->client, buf, len);
 
-	addr[0] = nanosic_dev->client->addr;
+	// nanosic_803_wakeup(nanosic_dev);
 
-	adap = i2c_get_adapter(nanosic_dev->client->adapter->nr);
-
-	msg[0].len = 1;
-	msg[0].addr = nanosic_dev->client->addr;
-	msg[0].flags = 0;
-	msg[0].buf = addr;
-
-	msg[1].addr = nanosic_dev->client->addr;
-	msg[1].flags = I2C_M_RD;
-	msg[1].len = len;
-	msg[1].buf = buf;
-
-	ret = i2c_transfer(adap, msg, 2);
 	if (ret < 0) {
-		dev_err(nanosic_dev->dev, "i2c_transfer read error\n");
-		len = -1;
+		dev_err(nanosic_dev->dev, "i2c_master_recv error: %d\n", ret);
+		return ret;
 	}
-
-	//mutex_unlock(&i2c_client->read_mutex);
-
-	return len;
-}
-
-static int nanosic_i2c_write(struct nanosic_803_priv *nanosic_dev, void *buf, size_t len)
-{
-	struct i2c_msg msg;
-	struct i2c_adapter *adap;
-	unsigned char tmp_buf[128] = { 0 };
-	int ret;
-
-	adap = i2c_get_adapter(nanosic_dev->client->adapter->nr);
-
-	tmp_buf[0] = nanosic_dev->client->addr;
-	memcpy(tmp_buf + 1, buf, len);
-
-	msg.addr = nanosic_dev->client->addr;
-	msg.flags = 0;
-	msg.len = len + 1;
-	msg.buf = tmp_buf;
-
-	ret = i2c_transfer(adap, &msg, 1);
-	if (ret < 0) {
-		printk("i2c_transfer write error\n");
-		len = -1;
+	if (ret != len) {
+		dev_err(nanosic_dev->dev, "i2c_master_recv incomplete read: got %d, expected %zu\n", ret, len);
+		return -EIO;
 	}
-
-	return len;
+	return ret;
 }
 
 static void nanosic_sync_caps_led(struct work_struct *work)
@@ -270,7 +235,7 @@ static void nanosic_sync_caps_led(struct work_struct *work)
 	int i = 0, ret = 0;
 
 	dev_dbg(nanosic_dev->dev, "setting caps led: %d\n", nanosic_dev->caps_led_on);
-	char cmd[I2C_DATA_LENGTH_WRITE] = {
+	char cmd[10] = {
 		0x32, 0x00, 0x4E, 0x31,
 		0x80, 0x38, 0x26, 0x01, nanosic_dev->caps_led_on
 	};
@@ -279,8 +244,11 @@ static void nanosic_sync_caps_led(struct work_struct *work)
 		cmd[9] += cmd[i];
 	}
 
-	/* cal sum */
-	ret = nanosic_i2c_write(nanosic_dev, cmd, sizeof(cmd));
+	mutex_lock(&nanosic_dev->i2c_mutex);
+	nanosic_803_wakeup(nanosic_dev);
+	nanosic_print_cmd(nanosic_dev, "sync_caps_led cmd: ", cmd, sizeof(cmd));
+	ret = regmap_raw_write(nanosic_dev->regmap, 0, cmd, sizeof(cmd));
+	mutex_unlock(&nanosic_dev->i2c_mutex);
 	if (ret < 0) {
 		dev_err(nanosic_dev->dev, "could not set caps led");
 	}
@@ -609,9 +577,9 @@ static irqreturn_t nanosic_interrupt_thread_fn(int irq, void *dev_id)
 
 	usleep_range(1000, 5000);
 
-	mutex_lock(&nanosic_dev->read_mutex);
+	mutex_lock(&nanosic_dev->i2c_mutex);
 	ret = nanosic_i2c_read(nanosic_dev, buf, sizeof(buf));
-	mutex_unlock(&nanosic_dev->read_mutex);
+	mutex_unlock(&nanosic_dev->i2c_mutex);
 	if (ret == 0) {
 		dev_err(nanosic_dev->dev, "Failed to read data on interrupt: %d\n", ret);
 		return IRQ_HANDLED;
@@ -754,7 +722,7 @@ static int nanosic_803_probe(struct i2c_client *client)
 	nanosic_dev->client = client;
 	nanosic_dev->regmap = map;
 
-	mutex_init(&nanosic_dev->read_mutex);
+	mutex_init(&nanosic_dev->i2c_mutex);
 
 	i2c_set_clientdata(client, nanosic_dev);
 
