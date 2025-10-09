@@ -28,7 +28,6 @@
 #define I2C_DATA_LENGTH_WRITE (66)
 
 #define TOUCH_TIMEOUT_MS 75
-#define INT_ADDR_MAX_BYTES 4
 
 static char *command_name[] = {
 	[0x01] = "Get version ()",
