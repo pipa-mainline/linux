@@ -310,19 +310,161 @@ static int pipa_init_sequence(struct nt36532 *ctx)
 	return 0;
 }
 
-static const struct drm_display_mode nt36532_mode_120 = {
-	.clock = (1800 + 200 + 4 + 92) * (2880 + 26 + 2 + 214) * 120 / 1000,
-	.hdisplay = 1800,
-	.hsync_start = 1800 + 200,
-	.hsync_end = 1800 + 200 + 4,
-	.htotal = 1800 + 200 + 4 + 92,
-	.vdisplay = 2880,
-	.vsync_start = 2880 + 26,
-	.vsync_end = 2880 + 26 + 2,
-	.vtotal = 2880 + 26 + 2 + 214,
-	.width_mm = 148,
-	.height_mm = 237,
-	.type = DRM_MODE_TYPE_DRIVER,
+// ===== РЕЖИМЫ 1800x2880 (ОРИГИНАЛЬНЫЕ) =====
+
+static const struct drm_display_mode nt36532_mode_1800_2880_144 = {
+    .clock = (1800 + 200 + 4 + 92) * (2880 + 26 + 2 + 214) * 144 / 1000,
+    .hdisplay = 1800,
+    .hsync_start = 1800 + 200,
+    .hsync_end = 1800 + 200 + 4,
+    .htotal = 1800 + 200 + 4 + 92,
+    .vdisplay = 2880,
+    .vsync_start = 2880 + 26,
+    .vsync_end = 2880 + 26 + 2,
+    .vtotal = 2880 + 26 + 2 + 214,
+    .width_mm = 148,
+    .height_mm = 237,
+    .type = DRM_MODE_TYPE_DRIVER,
+};
+
+static const struct drm_display_mode nt36532_mode_1800_2880_120 = {
+    .clock = (1800 + 200 + 4 + 92) * (2880 + 26 + 2 + 214) * 120 / 1000,
+    .hdisplay = 1800,
+    .hsync_start = 1800 + 200,
+    .hsync_end = 1800 + 200 + 4,
+    .htotal = 1800 + 200 + 4 + 92,
+    .vdisplay = 2880,
+    .vsync_start = 2880 + 26,
+    .vsync_end = 2880 + 26 + 2,
+    .vtotal = 2880 + 26 + 2 + 214,
+    .width_mm = 148,
+    .height_mm = 237,
+    .type = DRM_MODE_TYPE_DRIVER,
+};
+
+static const struct drm_display_mode nt36532_mode_1800_2880_90 = {
+    .clock = (1800 + 200 + 4 + 92) * (2880 + 26 + 2 + 214) * 90 / 1000,
+    .hdisplay = 1800,
+    .hsync_start = 1800 + 200,
+    .hsync_end = 1800 + 200 + 4,
+    .htotal = 1800 + 200 + 4 + 92,
+    .vdisplay = 2880,
+    .vsync_start = 2880 + 26,
+    .vsync_end = 2880 + 26 + 2,
+    .vtotal = 2880 + 26 + 2 + 214,
+    .width_mm = 148,
+    .height_mm = 237,
+    .type = DRM_MODE_TYPE_DRIVER,
+};
+
+static const struct drm_display_mode nt36532_mode_1800_2880_60 = {
+    .clock = (1800 + 200 + 4 + 92) * (2880 + 26 + 2 + 214) * 60 / 1000,
+    .hdisplay = 1800,
+    .hsync_start = 1800 + 200,
+    .hsync_end = 1800 + 200 + 4,
+    .htotal = 1800 + 200 + 4 + 92,
+    .vdisplay = 2880,
+    .vsync_start = 2880 + 26,
+    .vsync_end = 2880 + 26 + 2,
+    .vtotal = 2880 + 26 + 2 + 214,
+    .width_mm = 148,
+    .height_mm = 237,
+    .type = DRM_MODE_TYPE_DRIVER,
+};
+
+static const struct drm_display_mode nt36532_mode_1800_2880_45 = {
+    .clock = (1800 + 200 + 4 + 92) * (2880 + 26 + 2 + 214) * 45 / 1000,
+    .hdisplay = 1800,
+    .hsync_start = 1800 + 200,
+    .hsync_end = 1800 + 200 + 4,
+    .htotal = 1800 + 200 + 4 + 92,
+    .vdisplay = 2880,
+    .vsync_start = 2880 + 26,
+    .vsync_end = 2880 + 26 + 2,
+    .vtotal = 2880 + 26 + 2 + 214,
+    .width_mm = 148,
+    .height_mm = 237,
+    .type = DRM_MODE_TYPE_DRIVER,
+};
+
+// ===== РЕЖИМЫ 1200x1920 (АДАПТИРОВАННЫЕ) =====
+
+static const struct drm_display_mode nt36532_mode_1200_1920_144 = {
+    .clock = (1200 + 200 + 4 + 92) * (1920 + 26 + 2 + 214) * 144 / 1000,
+    .hdisplay = 1200,
+    .hsync_start = 1200 + 200,
+    .hsync_end = 1200 + 200 + 4,
+    .htotal = 1200 + 200 + 4 + 92,
+    .vdisplay = 1920,
+    .vsync_start = 1920 + 26,
+    .vsync_end = 1920 + 26 + 2,
+    .vtotal = 1920 + 26 + 2 + 214,
+    .width_mm = 98,   // Масштабировано: 148 * 1200/1800 = 98.67
+    .height_mm = 158, // Масштабировано: 237 * 1920/2880 = 158
+    .type = DRM_MODE_TYPE_DRIVER,
+};
+
+static const struct drm_display_mode nt36532_mode_1200_1920_120 = {
+    .clock = (1200 + 200 + 4 + 92) * (1920 + 26 + 2 + 214) * 120 / 1000,
+    .hdisplay = 1200,
+    .hsync_start = 1200 + 200,
+    .hsync_end = 1200 + 200 + 4,
+    .htotal = 1200 + 200 + 4 + 92,
+    .vdisplay = 1920,
+    .vsync_start = 1920 + 26,
+    .vsync_end = 1920 + 26 + 2,
+    .vtotal = 1920 + 26 + 2 + 214,
+    .width_mm = 98,
+    .height_mm = 158,
+    .type = DRM_MODE_TYPE_DRIVER,
+};
+
+static const struct drm_display_mode nt36532_mode_1200_1920_90 = {
+    .clock = (1200 + 200 + 4 + 92) * (1920 + 26 + 2 + 214) * 90 / 1000,
+    .hdisplay = 1200,
+    .hsync_start = 1200 + 200,
+    .hsync_end = 1200 + 200 + 4,
+    .htotal = 1200 + 200 + 4 + 92,
+    .vdisplay = 1920,
+    .vsync_start = 1920 + 26,
+    .vsync_end = 1920 + 26 + 2,
+    .vtotal = 1920 + 26 + 2 + 214,
+    .width_mm = 98,
+    .height_mm = 158,
+    .type = DRM_MODE_TYPE_DRIVER,
+};
+
+static const struct drm_display_mode nt36532_mode_1200_1920_60 = {
+    .clock = (1200 + 200 + 4 + 92) * (1920 + 26 + 2 + 214) * 60 / 1000,
+    .hdisplay = 1200,
+    .hsync_start = 1200 + 200,
+    .hsync_end = 1200 + 200 + 4,
+    .htotal = 1200 + 200 + 4 + 92,
+    .vdisplay = 1920,
+    .vsync_start = 1920 + 26,
+    .vsync_end = 1920 + 26 + 2,
+    .vtotal = 1920 + 26 + 2 + 214,
+    .width_mm = 98,
+    .height_mm = 158,
+    .type = DRM_MODE_TYPE_DRIVER,
+};
+
+static const struct drm_display_mode nt36532_mode_1200_1920_45 = {
+    .clock = (1200 + 200 + 4 + 92) * (1920 + 26 + 2 + 214) * 45 / 1000,
+    .hdisplay = 1200,
+    .hsync_start = 1200 + 200,
+    .hsync_end = 1200 + 200 + 4,
+    .htotal = 1200 + 200 + 4 + 92,
+    .vdisplay = 1920,
+    .vsync_start = 1920 + 26,
+    .vsync_end = 1920 + 26 + 2,
+    .vtotal = 1920 + 26 + 2 + 214,
+    .width_mm = 98,
+    .height_mm = 158,
+    .type = DRM_MODE_TYPE_DRIVER,
+};
+
+
 };
 static const struct panel_desc pipa_desc = {
 	.dsi_info = {
