@@ -475,12 +475,38 @@ static int nt36532_unprepare(struct drm_panel *panel)
 }
 
 static int nt36532_get_modes(struct drm_panel *panel,
-					struct drm_connector *connector)
+                             struct drm_connector *connector)
 {
-	const struct drm_display_mode *mode;
-	mode = &nt36532_mode_120;
-	return drm_connector_helper_get_modes_fixed(connector, mode);
+    static const struct drm_display_mode *modes[] = {
+        &nt36532_mode_1800_2880_144,
+        &nt36532_mode_1800_2880_120,
+        &nt36532_mode_1800_2880_90,
+        &nt36532_mode_1800_2880_60,
+        &nt36532_mode_1800_2880_45,
+        &nt36532_mode_1200_1920_144,
+        &nt36532_mode_1200_1920_120,
+        &nt36532_mode_1200_1920_90,
+        &nt36532_mode_1200_1920_60,
+        &nt36532_mode_1200_1920_45,
+    };
+    int i, count = 0;
+
+    for (i = 0; i < ARRAY_SIZE(modes); i++) {
+        struct drm_display_mode *mode = drm_mode_duplicate(connector->dev, modes[i]);
+        if (!mode)
+            return -ENOMEM;
+
+        if (i == 0) {
+            mode->type |= DRM_MODE_TYPE_PREFERRED;  // Первый режим по умолчанию
+        }
+
+        drm_mode_probed_add(connector, mode);
+        count++;
+    }
+
+    return count;
 }
+
 
 static const struct drm_panel_funcs nt36532_panel_funcs = {
 	.prepare = nt36532_prepare,
