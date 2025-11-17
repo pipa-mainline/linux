@@ -326,15 +326,15 @@ static const struct drm_display_mode nt36532_mode_120 = {
 };
 
 static const struct drm_display_mode nt36532_mode_60 = {
-	.clock = (1800 + 200 + 4 + 92) * (2880 + 26 + 2 + 214) * 60 / 1000,
+	.clock = 392622,
 	.hdisplay = 1800,
-	.hsync_start = 1800 + 200,
-	.hsync_end = 1800 + 200 + 4,
-	.htotal = 1800 + 200 + 4 + 92,
+	.hsync_start = 2000,
+	.hsync_end = 2004,
+	.htotal = 2096,
 	.vdisplay = 2880,
-	.vsync_start = 2880 + 26,
-	.vsync_end = 2880 + 26 + 2,
-	.vtotal = 2880 + 26 + 2 + 214,
+	.vsync_start = 2906,
+	.vsync_end = 2908,
+	.vtotal = 3122,
 	.width_mm = 148,
 	.height_mm = 237,
 	.type = DRM_MODE_TYPE_DRIVER,
