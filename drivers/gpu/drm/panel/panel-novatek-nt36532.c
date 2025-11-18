@@ -326,18 +326,18 @@ static const struct drm_display_mode nt36532_mode_120 = {
 };
 
 static const struct drm_display_mode nt36532_mode_60 = {
-	.clock = 392622,
-	.hdisplay = 1800,
-	.hsync_start = 2000,
-	.hsync_end = 2004,
-	.htotal = 2096,
-	.vdisplay = 2880,
-	.vsync_start = 2906,
-	.vsync_end = 2908,
-	.vtotal = 3122,
-	.width_mm = 148,
-	.height_mm = 237,
-	.type = DRM_MODE_TYPE_DRIVER,
+    .clock = 1948 * 3122 * 60 / 1000,
+    .hdisplay = 1800,
+    .hsync_start = 1846,
+    .hsync_end = 1848,
+    .htotal = 1948,
+    .vdisplay = 2880,
+    .vsync_start = 3094,
+    .vsync_end = 3096,
+    .vtotal = 3122,
+    .width_mm = 148,
+    .height_mm = 237,
+    .type = DRM_MODE_TYPE_DRIVER,
 };
 static const struct panel_desc pipa_desc = {
 	.dsi_info = {
