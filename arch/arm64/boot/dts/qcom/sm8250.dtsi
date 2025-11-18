@@ -3026,7 +3026,7 @@
 			gmu_opp_table: opp-table {
 				compatible = "operating-points-v2";
 
-				opp-500000000 {
+				opp-300000000 {
 					opp-hz = /bits/ 64 <300000000>;
 					opp-level = <RPMH_REGULATOR_LEVEL_MIN_SVS>;
 				};
