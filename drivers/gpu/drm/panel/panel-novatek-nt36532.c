@@ -310,35 +310,72 @@ static int pipa_init_sequence(struct nt36532 *ctx)
 	return 0;
 }
 
-static const struct drm_display_mode nt36532_mode_120 = {
-	.clock = (1800 + 200 + 4 + 92) * (2880 + 26 + 2 + 214) * 120 / 1000,
-	.hdisplay = 1800,
-	.hsync_start = 1800 + 200,
-	.hsync_end = 1800 + 200 + 4,
-	.htotal = 1800 + 200 + 4 + 92,
-	.vdisplay = 2880,
-	.vsync_start = 2880 + 26,
-	.vsync_end = 2880 + 26 + 2,
-	.vtotal = 2880 + 26 + 2 + 214,
-	.width_mm = 148,
-	.height_mm = 237,
-	.type = DRM_MODE_TYPE_DRIVER,
+/* 
+ * Optimized Modes for Novatek NT36532 on SM8250
+ * Strategy: Constant Pixel Clock (785.25 MHz) / Constant Line Time
+ * This prevents artifacting at lower refresh rates by maintaining 
+ * the native scan velocity of the panel.
+ */
+static const struct drm_display_mode nt36532_modes[] = {
+    {
+        /* 
+         * 120Hz Mode - Reference (Working) 
+         * Clock: 785,245 kHz | VTotal: 3122 | HTotal: 2096
+         */
+       .clock = 785245,
+       .hdisplay = 1800,
+       .hsync_start = 1800 + 200,    /* HFP = 200 */
+       .hsync_end = 1800 + 200 + 4,  /* HSA = 4 */
+       .htotal = 1800 + 200 + 4 + 92, /* HBP = 92 */
+       .vdisplay = 2880,
+       .vsync_start = 2880 + 26,     /* VFP = 26 */
+       .vsync_end = 2880 + 26 + 2,   /* VSA = 2 */
+       .vtotal = 2880 + 26 + 2 + 214, /* VBP = 214 */
+       .width_mm = 148,
+       .height_mm = 237,
+       .type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED,
+    },
+    {
+        /* 
+         * 90Hz Mode - Optimized 
+         * Clock maintained at 785,245 kHz to preserve line time.
+         * VTotal extended to 4163 lines via VFP.
+         */
+       .clock = 785245,
+       .hdisplay = 1800,
+       .hsync_start = 1800 + 200,
+       .hsync_end = 1800 + 200 + 4,
+       .htotal = 1800 + 200 + 4 + 92,
+       .vdisplay = 2880,
+       .vsync_start = 2880 + 1067,   /* Extended VFP: 1067 lines */
+       .vsync_end = 2880 + 1067 + 2,
+       .vtotal = 2880 + 1067 + 2 + 214,
+       .width_mm = 148,
+       .height_mm = 237,
+       .type = DRM_MODE_TYPE_DRIVER,
+    },
+    {
+        /* 
+         * 60Hz Mode - Artifact Fix
+         * Clock maintained at 785,245 kHz.
+         * VTotal extended to 6244 lines.
+         * Fixes "growing artifacts" by ensuring fast pixel charging.
+         */
+       .clock = 785245,
+       .hdisplay = 1800,
+       .hsync_start = 1800 + 200,
+       .hsync_end = 1800 + 200 + 4,
+       .htotal = 1800 + 200 + 4 + 92,
+       .vdisplay = 2880,
+       .vsync_start = 2880 + 3148,   /* Massively Extended VFP: 3148 lines */
+       .vsync_end = 2880 + 3148 + 2,
+       .vtotal = 2880 + 3148 + 2 + 214,
+       .width_mm = 148,
+       .height_mm = 237,
+       .type = DRM_MODE_TYPE_DRIVER,
+    }
 };
 
-static const struct drm_display_mode nt36532_mode_60 = {
-    .clock = 1948 * 3122 * 60 / 1000,
-    .hdisplay = 1800,
-    .hsync_start = 1846,
-    .hsync_end = 1848,
-    .htotal = 1948,
-    .vdisplay = 2880,
-    .vsync_start = 3094,
-    .vsync_end = 3096,
-    .vtotal = 3122,
-    .width_mm = 148,
-    .height_mm = 237,
-    .type = DRM_MODE_TYPE_DRIVER,
-};
 static const struct panel_desc pipa_desc = {
 	.dsi_info = {
 		.type = "pipa",
@@ -492,14 +529,10 @@ static int nt36532_unprepare(struct drm_panel *panel)
 static int nt36532_get_modes(struct drm_panel *panel,
 					struct drm_connector *connector)
 {
-	const struct drm_display_mode *modes[] = {
-		&nt36532_mode_120,
-		&nt36532_mode_60,
-	};
 	int count = 0, i;
 
-	for (i = 0; i < ARRAY_SIZE(modes); i++)
-		count += drm_connector_helper_get_modes_fixed(connector, modes[i]);
+	for (i = 0; i < ARRAY_SIZE(nt36532_modes); i++)
+		count += drm_connector_helper_get_modes_fixed(connector, &nt36532_modes[i]);
 	return count;
 }
 
