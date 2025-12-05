@@ -7,6 +7,7 @@
  * This work based on pmi8998 charger driver by 
  * Caleb Connolly <caleb.connolly@linaro.org>
  * Should be merged with the existing charger driver in the future.
+ * * Modified to include Charge Limiting (Battery Care) support.
  */
 
 #include <linux/bits.h>
@@ -290,6 +291,7 @@ struct smb5_register {
  * @usb_in_i_chan:	USB_IN current measurement channel
  * @usb_in_v_chan:	USB_IN voltage measurement channel
  * @chg_psy:		Charger power supply instance
+ * @charge_control_limit: User defined charge limit (0-100)
  */
 struct smb5_chip {
 	struct device *dev;
@@ -306,6 +308,9 @@ struct smb5_chip {
 	struct iio_channel *usb_in_v_chan;
 
 	struct power_supply *chg_psy;
+	
+	/* Added for Charge Limiting */
+	int charge_control_limit;
 };
 
 static enum power_supply_property smb5_properties[] = {
@@ -318,6 +323,8 @@ static enum power_supply_property smb5_properties[] = {
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_USB_TYPE,
+	/* Added for Charge Limiting */
+	POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD,
 };
 
 static int smb5_get_prop_usb_online(struct smb5_chip *chip, int *val)
@@ -462,6 +469,53 @@ static int smb5_set_current_limit(struct smb5_chip *chip, unsigned int val)
 		val_raw);
 }
 
+/*
+ * Helper function to update the hardware charging state based on the
+ * user-defined limit and the current battery capacity.
+ */
+static void smb5_update_charging_limit(struct smb5_chip *chip)
+{
+	struct power_supply *fg_psy;
+	union power_supply_propval val;
+	int ret;
+	bool disable_charging = false;
+
+	/* If limit is 100 or 0, we consider it "disabled" (allow full charge) */
+	if (chip->charge_control_limit <= 0 || chip->charge_control_limit >= 100) {
+		/* Ensure charging is ENABLED */
+		regmap_update_bits(chip->regmap, chip->base + CHARGING_ENABLE_CMD,
+				   CHARGING_ENABLE_CMD_BIT, CHARGING_ENABLE_CMD_BIT);
+		return;
+	}
+
+	/* Try to find the fuel gauge (Battery) to read capacity */
+	fg_psy = power_supply_get_by_name("pm8150b-fg");
+	if (!fg_psy)
+		fg_psy = power_supply_get_by_name("battery");
+	
+	if (!fg_psy) {
+		/* Fallback: If we can't find FG, we can't limit reliably. 
+		 * Don't disable charging to be safe. */
+		return;
+	}
+
+	ret = power_supply_get_property(fg_psy, POWER_SUPPLY_PROP_CAPACITY, &val);
+	power_supply_put(fg_psy);
+
+	if (ret < 0)
+		return;
+
+	/* Logic: If Capacity >= Limit, Disable Charging. Else, Enable. */
+	if (val.intval >= chip->charge_control_limit)
+		disable_charging = true;
+
+	/* Write to the CHARGING_ENABLE_CMD register (0x42) */
+	/* Bit 0: 1 = Enable Charging, 0 = Disable Charging */
+	regmap_update_bits(chip->regmap, chip->base + CHARGING_ENABLE_CMD,
+			   CHARGING_ENABLE_CMD_BIT,
+			   disable_charging ? 0 : CHARGING_ENABLE_CMD_BIT);
+}
+
 static void smb5_status_change_work(struct work_struct *work)
 {
 	unsigned int charger_type, current_ua;
@@ -511,7 +565,17 @@ static void smb5_status_change_work(struct work_struct *work)
 	}
 
 	smb5_set_current_limit(chip, current_ua);
+
+	/* Check and enforce the charge limit */
+	smb5_update_charging_limit(chip);
+
 	power_supply_changed(chip->chg_psy);
+
+	/* If a limit is set and we are online, keep checking every 60 seconds */
+	if (chip->charge_control_limit > 0 && chip->charge_control_limit < 100) {
+		schedule_delayed_work(&chip->status_change_work,
+				      msecs_to_jiffies(60000));
+	}
 }
 
 static int smb5_get_iio_chan(struct smb5_chip *chip, struct iio_channel *chan,
@@ -601,6 +665,9 @@ static int smb5_get_property(struct power_supply *psy,
 		return smb5_get_prop_health(chip, &val->intval);
 	case POWER_SUPPLY_PROP_USB_TYPE:
 		return smb5_apsd_get_charger_type(chip, &val->intval);
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD:
+		val->intval = chip->charge_control_limit;
+		return 0;
 	default:
 		dev_err(chip->dev, "invalid property: %d\n", psp);
 		return -EINVAL;
@@ -616,6 +683,16 @@ static int smb5_set_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		return smb5_set_current_limit(chip, val->intval);
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD:
+		if (val->intval < 0 || val->intval > 100)
+			return -EINVAL;
+		chip->charge_control_limit = val->intval;
+		/* Enforce immediately */
+		smb5_update_charging_limit(chip);
+		/* Reschedule work to monitor charging if needed */
+		if (chip->charge_control_limit > 0 && chip->charge_control_limit < 100)
+			schedule_delayed_work(&chip->status_change_work, 0);
+		return 0;
 	default:
 		dev_err(chip->dev, "No setter for property: %d\n", psp);
 		return -EINVAL;
@@ -627,6 +704,7 @@ static int smb5_property_is_writable(struct power_supply *psy,
 {
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD:
 		return 1;
 	default:
 		return 0;
@@ -829,6 +907,9 @@ static int smb5_probe(struct platform_device *pdev)
 
 	chip->dev = &pdev->dev;
 	chip->name = pdev->name;
+	
+	/* Default to 100% (No limit) on boot */
+	chip->charge_control_limit = 100;
 
 	chip->regmap = dev_get_regmap(pdev->dev.parent, NULL);
 	if (!chip->regmap)
