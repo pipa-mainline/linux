@@ -1524,21 +1524,21 @@ static int ov13b10_get_pm_resources(struct ov13b10 *ov13b)
 					     "failed to get avdd regulator\n");
 	}
 
-	ov13b->dvdd = devm_regulator_get_optional(dev, "dvdd");
+	ov13b->dvdd = devm_regulator_get_optional(ov13b->dev, "dvdd");
 	if (IS_ERR(ov13b->dvdd)) {
 		ret = PTR_ERR(ov13b->dvdd);
 		ov13b->dvdd = NULL;
 		if (ret != -ENODEV)
-			return dev_err_probe(dev, ret,
+			return dev_err_probe(ov13b->dev, ret,
 					     "failed to get dvdd regulator\n");
 	}
 
-	ov13b->dovdd = devm_regulator_get_optional(dev, "dovdd");
+	ov13b->dovdd = devm_regulator_get_optional(ov13b->dev, "dovdd");
 	if (IS_ERR(ov13b->dovdd)) {
 		ret = PTR_ERR(ov13b->dovdd);
 		ov13b->dovdd = NULL;
 		if (ret != -ENODEV)
-			return dev_err_probe(dev, ret,
+			return dev_err_probe(ov13b->dev, ret,
 					     "failed to get dovdd regulator\n");
 	}
 
